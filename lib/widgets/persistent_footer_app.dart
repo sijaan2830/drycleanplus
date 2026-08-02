@@ -8,7 +8,6 @@ import '../screens/more_screen.dart';
 import '../screens/service_overview_screen.dart';
 import '../utils/route_helpers.dart';
 import '../utils/guest_helper.dart';
-import '../utils/responsive_helper.dart';
 
 /// Global reference to PersistentFooterApp state for resetting navigation.
 /// Prefer using [persistentFooterKey] (the typed GlobalKey) instead.
