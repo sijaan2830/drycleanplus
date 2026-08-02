@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m1
     integrations:
-      app_store_connect: Codemagic # Name of App Store Connect integration in Codemagic
+      app_store_connect: Codemagic
     environment:
       ios_signing:
         distribution_type: app_store
@@ -22,18 +22,16 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd ios && pod install
-      - name: Flutter build IPA
+      - name: Build Flutter iOS Release
         script: |
-          flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist
-      - name: Publish to App Store Connect
+          flutter build ios --release --no-codesign
+      - name: Package iOS IPA with Codemagic Signing
         script: |
-          IPA_PATH=$(find . -name "*.ipa" | head -n 1)
-          echo "Found IPA at: $IPA_PATH"
-          app-store-connect publish --path "$IPA_PATH"
+          xcode-project build-ipa \
+            --workspace ios/Runner.xcworkspace \
+            --scheme Runner
     artifacts:
-      - build/**/*.ipa
-      - ios/**/*.ipa
+      - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
