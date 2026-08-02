@@ -28,10 +28,12 @@ workflows:
             --export-options-plist=ios/ExportOptions.plist
       - name: Publish to App Store Connect
         script: |
-          app-store-connect publish \
-            --path build/ios/ipa/*.ipa
+          IPA_PATH=$(find . -name "*.ipa" | head -n 1)
+          echo "Found IPA at: $IPA_PATH"
+          app-store-connect publish --path "$IPA_PATH"
     artifacts:
-      - build/ios/ipa/*.ipa
+      - build/**/*.ipa
+      - ios/**/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
