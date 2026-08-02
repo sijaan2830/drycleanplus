@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "778802274663",
+    "project_id": "dryclean-flutter-app",
+    "storage_bucket": "dryclean-flutter-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:778802274663:android:7f864f6dcd1b0dbb3b8fc2",
+        "android_client_info": {
+          "package_name": "com.drycleanplus.service.uk.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "778802274663-pp45ocg9g7vv1gs4bdkhokl5rgakqnhg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.drycleanplus.service.uk.app",
+            "certificate_hash": "9d994e137e1498dddc96a69358c775036953cb39"
+          }
+        },
+        {
+          "client_id": "778802274663-v783iarqj7qc4eu43t94c34ct3dko5cf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.drycleanplus.service.uk.app",
+            "certificate_hash": "7d3042ebc48de07f9fd4690a389cf2419b809409"
+          }
+        },
+        {
+          "client_id": "778802274663-adevakr0dpk4j5i3bsfn0bf260q9j7h6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqMZFODIhjPqAMUk0s7TWR4sS9I0hgSiQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "778802274663-adevakr0dpk4j5i3bsfn0bf260q9j7h6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
