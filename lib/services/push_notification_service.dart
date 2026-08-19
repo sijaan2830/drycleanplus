@@ -14,72 +14,104 @@ class PushNotificationService {
   static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
-    // Request permissions for iOS and Android 13+
-    await _fcm.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      // Request permissions for iOS and Android 13+
+      await _fcm.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    // Initialize Local Notifications for Foreground display
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
+      // Initialize Local Notifications for Foreground display
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    await _localNotifications.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse details) {
-        if (details.payload != null) {
+      const DarwinInitializationSettings initializationSettingsDarwin =
+          DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+
+      const InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsDarwin,
+      );
+
+      await _localNotifications.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse details) {
+          if (details.payload != null) {
+            try {
+              _handleNotificationClick({});
+            } catch (e) {
+              print('Error parsing notification payload: $e');
+            }
+          }
+        },
+      );
+
+      // Setup FCM token and topics safely in background without blocking launch
+      _setupFCMTokenAndTopics();
+
+      // Handle Foreground Messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('PUSH: Received foreground message');
+        print('PUSH: Title: ${message.notification?.title}');
+        print('PUSH: Body: ${message.notification?.body}');
+        print('PUSH: Data: ${message.data}');
+        _showLocalNotification(message);
+      });
+
+      // Handle Background & Terminated Messages (when notification is clicked)
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('PUSH: App opened from notification');
+        print('PUSH: Title: ${message.notification?.title}');
+        print('PUSH: Data: ${message.data}');
+        _handleNotificationClick(message.data);
+      });
+    } catch (e) {
+      print('PushNotificationService initialization error: $e');
+    }
+  }
+
+  static void _setupFCMTokenAndTopics() {
+    Future.microtask(() async {
+      try {
+        if (Platform.isIOS) {
+          // On iOS, APNS token is generated asynchronously by Apple
           try {
-            _handleNotificationClick({});
+            final apns = await _fcm.getAPNSToken();
+            print('APNS Token: $apns');
           } catch (e) {
-            print('Error parsing notification payload: $e');
+            print('APNS Token fetch notice: $e');
           }
         }
-      },
-    );
 
-    // Get the FCM token for debugging
-    String? token = await _fcm.getToken();
-    print('FCM Token: $token');
+        String? token = await _fcm.getToken();
+        print('FCM Token: $token');
 
-    // Subscribe to auth state changes to sync token whenever user logs in
-    FirebaseAuth.instance.authStateChanges().listen((User? user) async {
-      if (user != null && token != null) {
-        print('PUSH: Auth state change - user detected: ${user.uid}. Syncing token.');
-        await updateUserToken(user.uid);
+        // Subscribe to auth state changes to sync token whenever user logs in
+        FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+          if (user != null && token != null) {
+            print('PUSH: Auth state change - user detected: ${user.uid}. Syncing token.');
+            await updateUserToken(user.uid);
+          }
+        });
+
+        // Sync token if user is logged in
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null && token != null) {
+          await updateUserToken(currentUser.uid);
+        }
+
+        // Subscribe to topics
+        await _fcm.subscribeToTopic('offers');
+        await _fcm.subscribeToTopic('prepaid_packs');
+        print('Subscribed to "offers" and "prepaid_packs" topics');
+      } catch (e) {
+        print('FCM Token / Topics setup notice: $e');
       }
-    });
-
-    // Sync token if user is logged in
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser != null && token != null) {
-      await updateUserToken(currentUser.uid);
-    }
-
-    // Subscribe to topics
-    await _fcm.subscribeToTopic('offers');
-    await _fcm.subscribeToTopic('prepaid_packs');
-    print('Subscribed to "offers" and "prepaid_packs" topics');
-
-    // Handle Foreground Messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('PUSH: Received foreground message');
-      print('PUSH: Title: ${message.notification?.title}');
-      print('PUSH: Body: ${message.notification?.body}');
-      print('PUSH: Data: ${message.data}');
-      _showLocalNotification(message);
-    });
-
-    // Handle Background & Terminated Messages (when notification is clicked)
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('PUSH: App opened from notification');
-      print('PUSH: Title: ${message.notification?.title}');
-      print('PUSH: Data: ${message.data}');
-      _handleNotificationClick(message.data);
     });
   }
 

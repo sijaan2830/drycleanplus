@@ -51,17 +51,30 @@ void main() async {
 
     FirebaseMessaging.onBackgroundMessage(
         PushNotificationService.firebaseMessagingBackgroundHandler);
+  } catch (e) {
+    debugPrint('Firebase core initialization error: $e');
+  }
 
+  try {
     await PushNotificationService.initialize();
+  } catch (e) {
+    debugPrint('PushNotificationService initialization error: $e');
+  }
 
+  try {
     final firestoreService = FirestoreService();
     await firestoreService.initializeUserData();
     await firestoreService.getAllServices();
   } catch (e) {
-    debugPrint('Firebase initialization error: $e');
+    debugPrint('Firestore services preload notice: $e');
   }
 
-  await GuestHelper.initialize();
+  try {
+    await GuestHelper.initialize();
+  } catch (e) {
+    debugPrint('GuestHelper initialization error: $e');
+  }
+
   runApp(const DrycleanPlusApp());
 }
 

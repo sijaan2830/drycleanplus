@@ -52,8 +52,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDqMZFODIhjPqAMUk0s7TWR4sS9I0hgSiQ',
-    appId: '1:778802274663:ios:3fa960410a2219803b8fc2',
+    apiKey: 'AIzaSyAS75pBkqaNMgPVXJtJR4WtmbtB-0j4UJI',
+    appId: '1:778802274663:ios:724b27993a41624b3b8fc2',
     messagingSenderId: '778802274663',
     projectId: 'dryclean-flutter-app',
     storageBucket: 'dryclean-flutter-app.firebasestorage.app',
