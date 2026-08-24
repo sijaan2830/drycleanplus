@@ -13,6 +13,15 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Check Provisioning Profile Entitlements
+        script: |
+          echo "=== Provisioning Profiles found on build machine ==="
+          ls -la /Users/builder/Library/MobileDevice/Provisioning\ Profiles/ || true
+          for profile in /Users/builder/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision; do
+            echo "--- Profile: $profile ---"
+            security cms -D -i "$profile" > /tmp/profile.plist
+            /usr/libexec/PlistBuddy -c 'Print :Entitlements' /tmp/profile.plist || true
+          done
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles --warn-only
