@@ -29,7 +29,12 @@ workflows:
         script: |
           xcode-project build-ipa \
             --workspace ios/Runner.xcworkspace \
-            --scheme Runner
+            --scheme Runner || {
+              echo "=== XCODEBUILD FAILED: Printing logs ==="
+              cat /tmp/xcodebuild_logs/*.log 2>/dev/null || true
+              find /Users/builder/Library/Logs/gym -type f -name "*.log" -exec cat {} + 2>/dev/null || true
+              exit 1
+            }
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
