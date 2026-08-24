@@ -77,6 +77,10 @@
 			<string>fetch</string>
 			<string>remote-notification</string>
 		</array>
+		<key>GIDClientID</key>
+		<string>778802274663-19c8erp11o4kcvr2srscq91k24ngrdse.apps.googleusercontent.com</string>
+		<key>GIDServerClientID</key>
+		<string>778802274663-adevakr0dpk4j5i3bsfn0bf260q9j7h6.apps.googleusercontent.com</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

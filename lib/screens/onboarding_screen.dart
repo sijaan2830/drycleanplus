@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,6 +25,7 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
+  bool _isAppleLoading = false;
   bool _isGoogleLoading = false;
   bool _isGuestLoading = false;
   final AuthService _authService = AuthService();
@@ -94,17 +96,42 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (mounted) setState(() => _isGuestLoading = false);
   }
 
+  Future<void> _signInWithApple() async {
+    setState(() => _isAppleLoading = true);
+    try {
+      final userCredential = await _authService.signInWithApple();
+      if (userCredential != null && userCredential.user != null && mounted) {
+        await GuestHelper.setGuestStatus(false);
+        final firestoreService = FirestoreService();
+        await firestoreService.initializeUserData();
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.loadUserDataFromFirestore(userCredential.user!.uid);
+        if (mounted) _navigateWithLoader('/home');
+      } else if (userCredential == null) {
+        // User cancelled, do nothing
+      } else if (mounted) {
+        _showError('Apple Sign In failed. Please try again.');
+      }
+    } catch (e) {
+      if (mounted) _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isAppleLoading = false);
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
     try {
       final userCredential = await _authService.signInWithGoogle();
-      if (userCredential.user != null && mounted) {
+      if (userCredential != null && userCredential.user != null && mounted) {
         await GuestHelper.setGuestStatus(false);
         final firestoreService = FirestoreService();
         await firestoreService.initializeUserData();
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         await userProvider.loadUserDataFromFirestore(userCredential.user!.uid);
         if (mounted) _navigateWithLoader('/home'); // now 1.2s
+      } else if (userCredential == null) {
+        // User cancelled, do nothing
       } else if (mounted) {
         _showError('Sign in failed. Please try again.');
       }
@@ -327,6 +354,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
                 const SizedBox(height: 20),
 
+                // ── Apple Button (iOS & Web) ───────────────
+                if (kIsWeb || Theme.of(context).platform == TargetPlatform.iOS) ...[
+                  _AppleSignInButton(
+                    isLoading: _isAppleLoading,
+                    onPressed: _signInWithApple,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 // ── Google Button ─────────────────────────
                 _GoogleSignInButton(
                   isLoading: _isGoogleLoading,
@@ -508,6 +544,67 @@ class _DoodleLayer extends StatelessWidget {
       child: Opacity(
         opacity: o,
         child: Icon(icon, size: s, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Professional Apple Sign-In Button (Guideline 4.8 Compliant)
+// ────────────────────────────────────────────────────────────────────────────
+class _AppleSignInButton extends StatelessWidget {
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  const _AppleSignInButton(
+      {required this.isLoading, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: isLoading ? null : onPressed,
+        borderRadius: BorderRadius.circular(14),
+        splashColor: Colors.white.withOpacity(0.15),
+        child: SizedBox(
+          height: 56,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.apple,
+                    size: 24,
+                    color: Colors.white,
+                  ),
+                const SizedBox(width: 10),
+                Text(
+                  isLoading ? 'Signing in...' : 'Sign in with Apple',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
