@@ -15,18 +15,17 @@ workflows:
     scripts:
       - name: Set up code signing settings on Xcode project
         script: |
-          xcode-project use-profiles
+          xcode-project use-profiles --warn-only
       - name: Get Flutter packages
         script: |
           flutter pub get
-      - name: Build Flutter iOS Release
+      - name: Install CocoaPods dependencies
         script: |
-          flutter build ios --release --no-codesign
-      - name: Package iOS IPA with Codemagic Signing
+          find . -name "Podfile" -execdir pod install \;
+      - name: Flutter build ipa and sign
         script: |
-          xcode-project build-ipa \
-            --workspace ios/Runner.xcworkspace \
-            --scheme Runner
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
