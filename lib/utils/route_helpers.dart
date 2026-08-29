@@ -42,18 +42,12 @@ class RouteNotifier extends ValueNotifier<String?> {
   void updateRoute(String? newValue) {
     if (value == newValue) return;
 
-    // If we are in the middle of a frame (build/layout/paint), defer to
-    // the post-frame callback. Otherwise update synchronously so the
-    // footer reacts immediately on the very next paint.
-    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (value != newValue) {
-          super.value = newValue;
-        }
-      });
-    } else {
-      super.value = newValue;
-    }
+    // Always defer to post-frame callback to avoid setState/markNeedsBuild during widget tree build/mount
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (value != newValue) {
+        super.value = newValue;
+      }
+    });
   }
 }
 
