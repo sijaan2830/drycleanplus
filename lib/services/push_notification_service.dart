@@ -80,11 +80,17 @@ class PushNotificationService {
       try {
         if (Platform.isIOS) {
           // On iOS, APNS token is generated asynchronously by Apple
+          // Wait briefly then check — if not available, skip topic subscription
+          String? apns;
           try {
-            final apns = await _fcm.getAPNSToken();
+            apns = await _fcm.getAPNSToken();
             print('APNS Token: $apns');
           } catch (e) {
             print('APNS Token fetch notice: $e');
+          }
+          if (apns == null) {
+            print('APNS Token not yet available — skipping topic subscriptions for now');
+            return;
           }
         }
 
@@ -105,10 +111,14 @@ class PushNotificationService {
           await updateUserToken(currentUser.uid);
         }
 
-        // Subscribe to topics
-        await _fcm.subscribeToTopic('offers');
-        await _fcm.subscribeToTopic('prepaid_packs');
-        print('Subscribed to "offers" and "prepaid_packs" topics');
+        // Subscribe to topics (safe — APNS token is available on iOS)
+        try {
+          await _fcm.subscribeToTopic('offers');
+          await _fcm.subscribeToTopic('prepaid_packs');
+          print('Subscribed to "offers" and "prepaid_packs" topics');
+        } catch (e) {
+          print('Topic subscription notice: $e');
+        }
       } catch (e) {
         print('FCM Token / Topics setup notice: $e');
       }
@@ -200,8 +210,17 @@ class PushNotificationService {
       playSound: true,
     );
 
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
 
     await _localNotifications.show(
       message.hashCode,

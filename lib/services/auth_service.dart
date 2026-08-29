@@ -85,6 +85,7 @@ class AuthService {
       if (e.code == 'canceled' ||
           e.code == 'popup-closed-by-user' ||
           e.code == 'user-cancelled' ||
+          e.code == 'web-context-cancelled' ||
           e.code == 'account-exists-with-different-credential') {
         print('Apple sign-in cancelled or dismissed: ${e.message}');
         return null;
@@ -92,7 +93,14 @@ class AuthService {
       throw Exception('Apple auth error: ${e.message ?? e.code}');
     } catch (e) {
       final str = e.toString().toLowerCase();
-      if (str.contains('canceled') || str.contains('cancelled')) {
+      if (str.contains('canceled') ||
+          str.contains('cancelled') ||
+          str.contains('1000') ||
+          str.contains('1001') ||
+          str.contains('authorization_error') ||
+          str.contains('asauthorization') ||
+          str.contains('user denied') ||
+          str.contains('the operation couldn')) {
         print('Apple sign-in cancelled');
         return null;
       }
