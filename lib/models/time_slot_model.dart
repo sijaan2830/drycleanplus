@@ -24,12 +24,18 @@ class TimeSlot {
   });
 
   factory TimeSlot.fromFirestore(Map<String, dynamic> data, String id) {
+    final start = (data['start'] ?? data['startTime'] ?? '').toString();
+    final end = (data['end'] ?? data['endTime'] ?? '').toString();
+    final rawMax = data['max'] ?? data['maxBookings'];
+    final max = rawMax != null ? (num.tryParse(rawMax.toString()) ?? 15).toInt() : 15;
+    final rawCurrent = data['current'] ?? data['currentBookings'] ?? 0;
+    final current = (num.tryParse(rawCurrent.toString()) ?? 0).toInt();
     return TimeSlot(
       id: id,
-      start: data['start'] ?? '',
-      end: data['end'] ?? '',
-      maxSlots: data['max'] ?? 0,
-      currentSlots: data['current'] ?? 0,
+      start: start,
+      end: end,
+      maxSlots: max <= 0 ? 15 : max,
+      currentSlots: current,
       isActive: data['isActive'] ?? true,
       isOpen: data['isOpen'] ?? true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -77,7 +83,7 @@ class TimeSlot {
   int get availableSlots => maxSlots - currentSlots;
 
   /// Check if slot is available
-  bool get isAvailable => isActive && isOpen && availableSlots > 0;
+  bool get isAvailable => isActive && isOpen && (maxSlots <= 0 || availableSlots > 0);
 
   /// Get display time range
   String get timeRange => '$start - $end';

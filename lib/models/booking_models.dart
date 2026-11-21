@@ -8,6 +8,8 @@ class Address {
   final String postalCode;
   final bool isDefault;
   final String? buildingName;
+  final double? latitude;
+  final double? longitude;
 
   const Address({
     required this.id,
@@ -17,6 +19,8 @@ class Address {
     required this.postalCode,
     this.isDefault = false,
     this.buildingName,
+    this.latitude,
+    this.longitude,
   });
 
   Address copyWith({
@@ -27,6 +31,8 @@ class Address {
     String? postalCode,
     bool? isDefault,
     String? buildingName,
+    double? latitude,
+    double? longitude,
   }) {
     return Address(
       id: id ?? this.id,
@@ -36,6 +42,8 @@ class Address {
       postalCode: postalCode ?? this.postalCode,
       isDefault: isDefault ?? this.isDefault,
       buildingName: buildingName ?? this.buildingName,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 
@@ -48,19 +56,36 @@ class Address {
       'postalCode': postalCode,
       'isDefault': isDefault,
       'buildingName': buildingName,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     };
   }
 
   factory Address.fromJson(Map<String, dynamic> json) {
+    String? opt(Object? v) => v == null || '$v'.isEmpty ? null : '$v';
+    double? parseCoord(Object? v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse('$v');
+    }
     return Address(
-      id: json['id'] ?? '',
-      line1: json['line1'] ?? '',
-      line2: json['line2'],
-      city: json['city'] ?? '',
-      postalCode: json['postalCode'] ?? '',
-      isDefault: json['isDefault'] ?? false,
-      buildingName: json['buildingName'],
+      id: '${json['id'] ?? ''}',
+      line1: '${json['line1'] ?? ''}',
+      line2: opt(json['line2']),
+      city: '${json['city'] ?? ''}',
+      postalCode: '${json['postalCode'] ?? json['postcode'] ?? ''}',
+      isDefault: json['isDefault'] == true,
+      buildingName: opt(json['buildingName']),
+      latitude: parseCoord(json['latitude'] ?? json['lat']),
+      longitude: parseCoord(json['longitude'] ?? json['lon'] ?? json['lng']),
     );
+  }
+
+  String get googleMapsUrl {
+    if (latitude != null && longitude != null) {
+      return 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    }
+    return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('$line1, $city $postalCode')}';
   }
 
   String get fullAddress {
@@ -132,7 +157,8 @@ class BookingData {
   String? createdAt;
   String? customerType; // 'individual' or 'company'
   String? companyName;
-  String? paymentMethod;
+  String? paymentMethod; // 'sumup' | 'cod'
+  String? paymentStatus; // 'paid_unverified' | 'pay_on_delivery'
   double totalPrice;
   String? collectionMethod;
   String? deliveryMethod;
@@ -140,6 +166,12 @@ class BookingData {
   String? prepaidPackName;
   String? discountCode;
   double discountAmount;
+  /// Services ticked on "Select a service" (bag orders, counted at the facility).
+  List<String> selectedServices;
+  /// Special cleaning request per service name.
+  Map<String, String> serviceRequests;
+  double tipAmount;
+  bool repeatOrder;
 
   BookingData({
     this.addresses = const [],
@@ -162,6 +194,7 @@ class BookingData {
     this.customerType,
     this.companyName,
     this.paymentMethod,
+    this.paymentStatus,
     this.totalPrice = 0.0,
     this.collectionMethod,
     this.deliveryMethod,
@@ -169,6 +202,10 @@ class BookingData {
     this.prepaidPackName,
     this.discountCode,
     this.discountAmount = 0.0,
+    this.selectedServices = const [],
+    this.serviceRequests = const {},
+    this.tipAmount = 0.0,
+    this.repeatOrder = false,
   });
 
   BookingData copyWith({
@@ -192,6 +229,7 @@ class BookingData {
     String? customerType,
     String? companyName,
     String? paymentMethod,
+    String? paymentStatus,
     double? totalPrice,
     String? collectionMethod,
     String? deliveryMethod,
@@ -199,6 +237,10 @@ class BookingData {
     String? prepaidPackName,
     String? discountCode,
     double? discountAmount,
+    List<String>? selectedServices,
+    Map<String, String>? serviceRequests,
+    double? tipAmount,
+    bool? repeatOrder,
   }) {
     return BookingData(
       addresses: addresses ?? this.addresses,
@@ -221,6 +263,7 @@ class BookingData {
       customerType: customerType ?? this.customerType,
       companyName: companyName ?? this.companyName,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       totalPrice: totalPrice ?? this.totalPrice,
       collectionMethod: collectionMethod ?? this.collectionMethod,
       deliveryMethod: deliveryMethod ?? this.deliveryMethod,
@@ -228,20 +271,19 @@ class BookingData {
       prepaidPackName: prepaidPackName ?? this.prepaidPackName,
       discountCode: discountCode ?? this.discountCode,
       discountAmount: discountAmount ?? this.discountAmount,
+      selectedServices: selectedServices ?? this.selectedServices,
+      serviceRequests: serviceRequests ?? this.serviceRequests,
+      tipAmount: tipAmount ?? this.tipAmount,
+      repeatOrder: repeatOrder ?? this.repeatOrder,
     );
   }
 
   Map<String, dynamic> toJson() {
-    // Calculate total amount with tax and fees for storage
-    // Use calculatedTotalPrice as the base price (not totalPrice which might be 0)
+    // Pricing: items - discount + service fee + delivery fee (no tax).
     final basePrice = subtotal;
     final discSubtotal = discountedSubtotal;
-    final serviceFee = 2.99;
-    final deliveryFee = 0.0;
-    final taxRate = 0.20; // 20% tax
-    final tax = (discSubtotal + serviceFee + deliveryFee) * taxRate;
-    final totalAmount = discSubtotal + serviceFee + deliveryFee + tax;
-    
+    final totalAmount = this.totalAmount;
+
     return {
       'addresses': addresses.map((a) => a.toJson()).toList(),
       'selectedAddress': selectedAddress?.toJson(),
@@ -268,61 +310,75 @@ class BookingData {
       'customerType': customerType,
       'companyName': companyName,
       'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
       'totalPrice': basePrice, // Store the actual base price (subtotal)
       'discountAmount': discountAmount,
       'discountedSubtotal': discSubtotal,
-      'transactionAmount': totalAmount, // Store total amount with tax and fees
+      'transactionAmount': totalAmount, // total payable (no tax)
       'collectionMethod': collectionMethod,
       'deliveryMethod': deliveryMethod,
       'instructions': instructions,
       'prepaidPackName': prepaidPackName,
       'discountCode': discountCode,
-      'discountAmount': discountAmount,
+      'selectedServices': selectedServices,
+      'serviceRequests': serviceRequests,
+      'tipAmount': tipAmount,
+      'repeatOrder': repeatOrder ? 'weekly' : '', // same values as the website ('' = no repeat)
+      // no items picked → the facility counts the bag and the customer approves the price
+      'priceMode': selectedItems.isEmpty ? 'estimate' : 'fixed',
     };
   }
 
   factory BookingData.fromJson(Map<String, dynamic> json) {
+    // Orders come from the app AND the website (numbers vs text) — read everything defensively.
+    String str(Object? v) => v == null ? '' : '$v';
+    String? opt(Object? v) => v == null ? null : '$v';
+    double numv(Object? v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}'.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+    Map<String, dynamic> map(Object? v) => v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
+    Address? addr(Object? v) => v is Map ? Address.fromJson(map(v)) : null;
+    String price(Object? v) => v is num ? '£${v.toStringAsFixed(2)}' : str(v);
+
     return BookingData(
-      addresses: (json['addresses'] as List<dynamic>?)
-          ?.map((a) => Address.fromJson(a))
-          .toList() ?? [],
-      selectedAddress: json['selectedAddress'] != null
-          ? Address.fromJson(json['selectedAddress'])
-          : null,
-      deliveryAddress: json['deliveryAddress'] != null
-          ? Address.fromJson(json['deliveryAddress'])
-          : null,
-      collectionDate: json['collectionDate'],
-      collectionTime: json['collectionTime'],
-      deliveryDate: json['deliveryDate'],
-      deliveryTime: json['deliveryTime'],
-      selectedItems: (json['selectedItems'] as Map<String, dynamic>?)?.map(
-        (key, value) => MapEntry(key, ServiceItem(
-          category: value['category'] ?? '',
-          itemType: value['itemType'] ?? '',
-          price: value['price'] ?? '',
-          description: value['description'] ?? '',
-        )),
-      ) ?? {},
-      firstName: json['firstName'] ?? '',
-      lastName: json['lastName'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
-      specialInstructions: json['specialInstructions'] ?? '',
-      acceptedTerms: json['acceptedTerms'] ?? false,
-      bookingReference: json['bookingReference'],
-      status: json['status'],
-      createdAt: json['createdAt'],
-      customerType: json['customerType'],
-      companyName: json['companyName'],
-      paymentMethod: json['paymentMethod'],
-      totalPrice: (json['totalPrice'] as num?)?.toDouble() ?? 0.0,
-      collectionMethod: json['collectionMethod'],
-      deliveryMethod: json['deliveryMethod'],
-      instructions: json['instructions'],
-      prepaidPackName: json['prepaidPackName'],
-      discountCode: json['discountCode'],
-      discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
+      addresses: ((json['addresses'] as List?) ?? const []).whereType<Map>().map((a) => Address.fromJson(map(a))).toList(),
+      selectedAddress: addr(json['selectedAddress']),
+      deliveryAddress: addr(json['deliveryAddress']),
+      collectionDate: opt(json['collectionDate']),
+      collectionTime: opt(json['collectionTime']),
+      deliveryDate: opt(json['deliveryDate']),
+      deliveryTime: opt(json['deliveryTime']),
+      selectedItems: map(json['selectedItems']).map((key, value) {
+        final v = map(value);
+        return MapEntry(key, ServiceItem(
+          category: str(v['category']),
+          itemType: str(v['itemType'] ?? v['name']),
+          price: price(v['price']),
+          description: str(v['description']),
+        ));
+      }),
+      firstName: str(json['firstName']),
+      lastName: str(json['lastName']),
+      email: str(json['email']),
+      phone: str(json['phone']),
+      specialInstructions: str(json['specialInstructions']),
+      acceptedTerms: json['acceptedTerms'] == true,
+      bookingReference: opt(json['bookingReference']),
+      status: opt(json['status']),
+      createdAt: opt(json['createdAt']),
+      customerType: opt(json['customerType']),
+      companyName: opt(json['companyName']),
+      paymentMethod: opt(json['paymentMethod']),
+      paymentStatus: opt(json['paymentStatus']),
+      totalPrice: numv(json['totalPrice']),
+      collectionMethod: opt(json['collectionMethod'] ?? json['collectionHandoff']),
+      deliveryMethod: opt(json['deliveryMethod'] ?? json['deliveryHandoff']),
+      instructions: opt(json['instructions']),
+      prepaidPackName: opt(json['prepaidPackName']),
+      discountCode: opt(json['discountCode']),
+      discountAmount: numv(json['discountAmount']),
+      selectedServices: ((json['selectedServices'] as List?) ?? const []).map((e) => '$e').toList(),
+      serviceRequests: map(json['serviceRequests']).map((k, v) => MapEntry(k, '$v')),
+      tipAmount: numv(json['tipAmount']),
+      repeatOrder: _isRepeat(json['repeatOrder']),
     );
   }
 
@@ -343,15 +399,15 @@ class BookingData {
   bool get hasContactInfo => firstName.isNotEmpty && phone.isNotEmpty;
   bool get isReadyForPayment => hasSelectedAddress && hasCollectionDateTime && hasDeliveryDateTime && hasContactInfo && acceptedTerms;
 
-  double get calculatedTotalPrice {
-    // Calculate total amount with tax and fees
-    const serviceFee = 2.99;
-    const deliveryFee = 0.0;
-    const taxRate = 0.20; // 20% tax
-    final discSubtotal = discountedSubtotal;
-    final tax = (discSubtotal + serviceFee + deliveryFee) * taxRate;
-    return discSubtotal + serviceFee + deliveryFee + tax;
-  }
+  /// Fixed fees. Tax has been removed from the order total.
+  static const double serviceFee = 2.99;
+  static const double deliveryFee = 0.0;
+
+  /// Total payable = items - discount + service fee + delivery fee.
+  double get totalAmount => discountedSubtotal + serviceFee + deliveryFee + tipAmount;
+
+  /// Kept for older call sites.
+  double get calculatedTotalPrice => totalAmount;
 }
 
 class Order {
@@ -427,17 +483,17 @@ class Order {
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
-      id: json['id'] ?? '',
-      orderId: json['orderId'] ?? '',
-      bookingData: BookingData.fromJson(json['bookingData'] ?? {}),
-      type: json['type'] ?? 'regular',
-      status: json['status'] ?? 'pending',
+      id: '${json['id'] ?? ''}',
+      orderId: '${json['orderId'] ?? ''}',
+      bookingData: BookingData.fromJson(json['bookingData'] is Map ? Map<String, dynamic>.from(json['bookingData']) : <String, dynamic>{}),
+      type: '${json['type'] ?? 'regular'}',
+      status: '${json['status'] ?? 'pending'}',
       createdAt: _parseDate(json['createdAt']),
       updatedAt: json['updatedAt'] != null ? _parseDate(json['updatedAt']) : null,
       deliveredAt: json['deliveredAt'] != null ? _parseDate(json['deliveredAt']) : null,
-      transactionAmount: (json['transactionAmount'] as num?)?.toDouble(),
-      transactionId: json['transactionId'],
-      paymentMethod: json['paymentMethod'],
+      transactionAmount: json['transactionAmount'] is num ? (json['transactionAmount'] as num).toDouble() : double.tryParse('${json['transactionAmount'] ?? ''}'),
+      transactionId: json['transactionId']?.toString(),
+      paymentMethod: json['paymentMethod']?.toString(),
     );
   }
 
@@ -452,4 +508,11 @@ class Order {
     }
     return DateTime.now();
   }
+}
+
+/// Website saves the repeat as text (`weekly`, `fortnightly`…, `` = none); older app builds saved true/false.
+bool _isRepeat(Object? v) {
+  if (v is bool) return v;
+  final s = (v ?? '').toString().trim().toLowerCase();
+  return s.isNotEmpty && !const {'false', 'no', 'none', 'never', '0'}.contains(s);
 }

@@ -1,15 +1,18 @@
+import '../../widgets/collection_delivery_badges.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/theme.dart';
-import '../../providers/booking_provider.dart';
 import '../../models/booking_models.dart';
-import '../../widgets/skeleton_loading.dart';
+import '../../providers/booking_provider.dart';
+import '../../widgets/app_ui.dart';
+import '../../widgets/order_card_widget.dart';
 import '../service_overview_screen.dart';
-import 'time_slots_screen.dart';
 import 'address_selection_screen.dart';
 import 'contact_info_screen.dart';
-import 'payment_screen.dart';
+import 'payment_options_screen.dart';
+import 'time_slots_screen.dart';
 
 class BookingOverviewScreen extends StatefulWidget {
   const BookingOverviewScreen({super.key});
@@ -19,17 +22,9 @@ class BookingOverviewScreen extends StatefulWidget {
 }
 
 class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
-  bool _isLoading = true;
   bool _showCouponField = false;
+  bool _applyingCoupon = false;
   final TextEditingController _couponController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) setState(() => _isLoading = false);
-    });
-  }
 
   @override
   void dispose() {
@@ -37,669 +32,1115 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
     super.dispose();
   }
 
-  void _showCancelConfirmation(BuildContext context) {
+  void _showCancelConfirmation() {
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.primaryBlueDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text(
-            'Cancel Order',
-            style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 18),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0B1F5B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Cancel order?',
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
           ),
-          content: Text(
-            'Are you sure you want to cancel this order?',
-            style: TextStyle(fontSize: 14, color: AppColors.white.withOpacity(0.7)),
+        ),
+        content: Text(
+          'Your selected items and details will be cleared.',
+          style: GoogleFonts.plusJakartaSans(
+            color: Colors.white.withValues(alpha: 0.85),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(
-                'No',
-                style: TextStyle(color: AppColors.white.withOpacity(0.5), fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Keep order',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                Provider.of<BookingProvider>(context, listen: false).clearBookingData();
-                Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              Provider.of<BookingProvider>(context, listen: false).clearBookingData();
+              Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+            },
+            child: Text(
+              'Yes, cancel',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFFFF8A80),
               ),
-              child: const Text('Yes, Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _navigateTo(Widget screen, String routeName) {
+    return Navigator.of(context).push(smoothRoute(screen, name: routeName));
+  }
+
+  String? _validate(BookingData d) {
+    if (d.selectedAddress == null) return 'Please select a collection address';
+    if ((d.collectionDate ?? '').isEmpty || (d.collectionTime ?? '').isEmpty) {
+      return 'Please select a collection date and time';
+    }
+    if ((d.deliveryDate ?? '').isEmpty || (d.deliveryTime ?? '').isEmpty) {
+      return 'Please select a delivery date and time';
+    }
+    if (d.firstName.trim().isEmpty || d.phone.trim().isEmpty) {
+      return 'Please complete your contact information';
+    }
+    return null;
+  }
+
+  void _payNow(BookingData d) {
+    final problem = _validate(d);
+    if (problem != null) {
+      showAppSnack(context, problem, error: true);
+      return;
+    }
+    Navigator.of(context).push(
+      smoothRoute(PaymentOptionsScreen(amount: d.totalAmount), name: '/payment_options'),
+    );
+  }
+
+  Future<void> _applyCoupon(BookingProvider provider) async {
+    if (_applyingCoupon) return;
+    setState(() => _applyingCoupon = true);
+    final result = await provider.applyCoupon(_couponController.text);
+    if (!mounted) return;
+    setState(() => _applyingCoupon = false);
+    showAppSnack(context, result['message']?.toString() ?? '', error: result['success'] != true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBlue,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBlue,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.white, size: 20),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              Navigator.of(context).pushReplacementNamed('/home');
-            }
-          },
-        ),
-        title: const Text(
-          'Review order',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: () => _showCancelConfirmation(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w600),
+    return Consumer<BookingProvider>(
+      builder: (context, provider, _) {
+        final d = provider.bookingData;
+        final total = d.totalAmount;
+
+        final grouped = <String, List<ServiceItem>>{};
+        for (final item in d.selectedItems.values) {
+          grouped.putIfAbsent(item.category, () => []).add(item);
+        }
+
+        return Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: AppColors.bgGradient,
             ),
-          ),
-        ],
-      ),
-      body: Consumer<BookingProvider>(
-        builder: (context, provider, child) {
-          final bookingData = provider.bookingData;
-
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Price Summary
-                  if (_isLoading)
-                    _buildPriceSkeleton()
-                  else
-                    _buildPriceSummary(bookingData, context, provider),
-
-                  const SizedBox(height: 24),
-                  _goldDivider(),
-                  const SizedBox(height: 24),
-
-                  // Order Details
-                  const Text(
-                    'Order details',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.white),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Collection
-                  _sectionHeader(
-                    title: 'Collection',
-                    onEdit: () => _navigateTo(context, const TimeSlotsScreen(isEditMode: true), '/time_slots'),
-                  ),
-                  const SizedBox(height: 8),
-                  Consumer<BookingProvider>(
-                    builder: (context, p, _) => Text(
-                      '${p.bookingData.collectionDate ?? 'Not selected'}, ${p.bookingData.collectionTime ?? 'Not selected'}\nCollect from me in person',
-                      style: const TextStyle(color: AppColors.white, height: 1.45, fontSize: 14),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Delivery
-                  const Text(
-                    'Delivery',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.white),
-                  ),
-                  const SizedBox(height: 6),
-                  Consumer<BookingProvider>(
-                    builder: (context, p, _) => Text(
-                      '${p.bookingData.deliveryDate ?? 'Not selected'}, ${p.bookingData.deliveryTime ?? 'Not selected'}\nDeliver to me in person',
-                      style: const TextStyle(color: AppColors.white, height: 1.45, fontSize: 14),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  _goldDivider(),
-                  const SizedBox(height: 24),
-
-                  // Services
-                  _sectionHeader(
-                    title: 'Services',
-                    onEdit: () {
-                      final svc = Provider.of<BookingProvider>(context, listen: false).selectedService ?? 'Dry Clean';
-                      _navigateTo(context, ServiceOverviewScreen(serviceType: svc, isEditMode: true), '/service_overview');
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Consumer<BookingProvider>(
-                    builder: (context, p, _) {
-                      final Map<String, List<ServiceItem>> grouped = {};
-                      for (var item in p.bookingData.selectedItems.values) {
-                        grouped.putIfAbsent(item.category, () => []).add(item);
-                      }
-                      return Column(
-                        children: grouped.entries.map((entry) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _serviceHeader(entry.key),
-                              const SizedBox(height: 12),
-                              ...entry.value.map((item) => _serviceItemRow(item)),
-                              const SizedBox(height: 16),
-                            ],
-                          );
-                        }).toList(),
-                      );
-                    },
-                  ),
-
-                  _dimDivider(),
-                  const SizedBox(height: 24),
-
-                  // Collection Address
-                  _sectionHeader(
-                    title: 'Collection address',
-                    onEdit: () => _navigateTo(context, const AddressSelectionScreen(isEditMode: true), '/address_selection'),
-                  ),
-                  const SizedBox(height: 8),
-                  Consumer<BookingProvider>(
-                    builder: (context, p, _) => Text(
-                      p.bookingData.selectedAddress?.fullAddress ?? 'No address selected',
-                      style: const TextStyle(color: AppColors.white, height: 1.45, fontSize: 14),
-                    ),
-                  ),
-
-                  _dimDivider(),
-                  const SizedBox(height: 24),
-
-                  // Contact Information
-                  _sectionHeader(
-                    title: 'Contact information',
-                    titleColor: AppColors.gold,
-                    onEdit: () => _navigateTo(context, const ContactInfoScreen(isEditMode: true), '/contact_info'),
-                  ),
-                  const SizedBox(height: 8),
-                  Consumer<BookingProvider>(
-                    builder: (context, p, _) => Text(
-                      '${p.bookingData.firstName} ${p.bookingData.lastName}\n${p.bookingData.phone}',
-                      style: const TextStyle(color: AppColors.white, height: 1.45, fontSize: 14),
-                    ),
-                  ),
-
-                  const SizedBox(height: 80),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-      bottomSheet: _buildBottomPayButton(),
-    );
-  }
-
-  // ─── Navigation helper ───────────────────────────────────────────────────
-
-  Future<void> _navigateTo(BuildContext context, Widget screen, String routeName) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        settings: RouteSettings(name: routeName),
-        builder: (_) => screen,
-      ),
-    );
-  }
-
-  bool _validateOrder(BookingData data) {
-    if (data.selectedAddress == null) {
-      _showWarning('Please select a collection address');
-      return false;
-    }
-    
-    // Check collection date/time
-    if (data.collectionDate == null || data.collectionDate!.isEmpty || 
-        data.collectionTime == null || data.collectionTime!.isEmpty) {
-      _showWarning('Please select a collection date and time');
-      return false;
-    }
-    
-    // Check delivery date/time
-    if (data.deliveryDate == null || data.deliveryDate!.isEmpty || 
-        data.deliveryTime == null || data.deliveryTime!.isEmpty) {
-      _showWarning('Please select a delivery date and time');
-      return false;
-    }
-    
-    // Check contact info
-    if (data.firstName.trim().isEmpty || data.phone.trim().isEmpty) {
-      _showWarning('Please complete your contact information (Name & Phone)');
-      return false;
-    }
-    
-    return true;
-  }
-
-  void _showWarning(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade800,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
-
-  // ─── Dividers ────────────────────────────────────────────────────────────
-
-  Widget _goldDivider() => Container(height: 1.5, color: AppColors.goldBorder);
-
-  Widget _dimDivider() => Container(height: 1, color: Colors.white.withOpacity(0.1));
-
-  // ─── Section header row ──────────────────────────────────────────────────
-
-  Widget _sectionHeader({
-    required String title,
-    Color? titleColor,
-    VoidCallback? onEdit,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-            color: titleColor ?? AppColors.white,
-          ),
-        ),
-        if (onEdit != null) _editButton(onPressed: onEdit),
-      ],
-    );
-  }
-
-  // ─── Edit button ─────────────────────────────────────────────────────────
-
-  Widget _editButton({VoidCallback? onPressed}) {
-    return GestureDetector(
-      onTap: onPressed ?? () {},
-      child: Container(
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: AppColors.gold,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 2, offset: const Offset(0, 1)),
-          ],
-        ),
-        child: const Icon(Icons.edit, color: AppColors.primaryBlueDark, size: 12),
-      ),
-    );
-  }
-
-  // ─── Service header with icon ─────────────────────────────────────────────
-
-  Widget _serviceHeader(String service) {
-    final IconData icon;
-    switch (service.toLowerCase()) {
-      case 'dry clean':         icon = Icons.dry_cleaning; break;
-      case 'laundry & ironing': icon = Icons.iron; break;
-      case 'duvets & bedding':  icon = Icons.bed; break;
-      case 'household items':   icon = Icons.home; break;
-      default:                  icon = Icons.local_laundry_service;
-    }
-
-    return Row(
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.primaryBlueDark,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.gold.withOpacity(0.45), width: 1),
-          ),
-          child: Icon(icon, color: AppColors.gold, size: 22),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(service, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-            const SizedBox(height: 2),
-            Text('Selected service', style: TextStyle(color: AppColors.white.withOpacity(0.5), fontSize: 12)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ─── Individual service item row ──────────────────────────────────────────
-
-  Widget _serviceItemRow(ServiceItem item) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, left: 20),
-      child: Row(
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.gold, width: 1),
-            ),
-            child: const Icon(Icons.dry_cleaning, color: AppColors.gold, size: 11),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                Text(item.itemType, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 2),
-                Text('£${item.price} · No special request', style: TextStyle(color: AppColors.white.withOpacity(0.55), fontSize: 12)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Price skeleton ───────────────────────────────────────────────────────
-
-  Widget _buildPriceSkeleton() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [
-          SkeletonLoading(width: 140, height: 20, borderRadius: 4),
-          SkeletonLoading(width: 60, height: 20, borderRadius: 4),
-        ]),
-        const SizedBox(height: 12),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [
-          SkeletonLoading(width: 60, height: 14, borderRadius: 4),
-          SkeletonLoading(width: 40, height: 14, borderRadius: 4),
-        ]),
-        const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [
-          SkeletonLoading(width: 70, height: 14, borderRadius: 4),
-          SkeletonLoading(width: 40, height: 14, borderRadius: 4),
-        ]),
-        const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [
-          SkeletonLoading(width: 80, height: 14, borderRadius: 4),
-          SkeletonLoading(width: 40, height: 14, borderRadius: 4),
-        ]),
-      ],
-    );
-  }
-
-  // ─── Price summary ────────────────────────────────────────────────────────
-
-  Widget _buildPriceSummary(BookingData bookingData, BuildContext context, BookingProvider provider) {
-    final subtotal = bookingData.subtotal;
-    final discount = bookingData.discountAmount;
-    final discountedSubtotal = bookingData.discountedSubtotal;
-    const serviceFee = 2.99;
-    const deliveryFee = 0.0;
-    final preTaxTotal = discountedSubtotal + serviceFee + deliveryFee;
-    final taxAmount = preTaxTotal * 0.20;
-    final total = preTaxTotal + taxAmount;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Total header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              'Pay now (incl. 20% tax)',
-              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.white),
-            ),
-            Text(
-              '£${total.toStringAsFixed(2)}',
-              style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.gold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Price rows
-        _priceRow('Subtotal', '£${subtotal.toStringAsFixed(2)}'),
-        if (discount > 0)
-          _priceRow('Discount (${bookingData.discountCode})', '-£${discount.toStringAsFixed(2)}', isDiscount: true),
-        _priceRow('Service fee', '£${serviceFee.toStringAsFixed(2)}'),
-        _priceRow('Delivery fee', deliveryFee == 0.0 ? 'FREE' : '£${deliveryFee.toStringAsFixed(2)}'),
-        _priceRow('Tax (20%)', '£${taxAmount.toStringAsFixed(2)}'),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: _goldDivider(),
-        ),
-        _priceRow('Total', '£${total.toStringAsFixed(2)}', isTotal: true),
-
-        const SizedBox(height: 20),
-
-        // Coupon Toggle
-        GestureDetector(
-          onTap: () => setState(() => _showCouponField = !_showCouponField),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            color: Colors.transparent,
-            child: Row(
-              children: [
-                Icon(
-                  _showCouponField ? Icons.keyboard_arrow_up : Icons.local_offer_outlined,
-                  color: AppColors.gold,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Have a coupon code?',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.white.withOpacity(_showCouponField ? 1.0 : 0.7),
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  _showCouponField ? Icons.remove_circle_outline : Icons.add_circle_outline,
-                  color: AppColors.gold.withOpacity(0.5),
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        if (_showCouponField || bookingData.discountCode != null) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBlueDark,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.gold.withOpacity(0.6), width: 1.5),
-                  ),
-                  child: TextField(
-                    controller: _couponController,
-                    enabled: bookingData.discountCode == null,
-                    cursorColor: AppColors.gold,
-                    textAlignVertical: TextAlignVertical.center,
-                    decoration: InputDecoration(
-                      hintText: 'Enter promo code',
-                      hintStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.white.withOpacity(0.35)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      filled: true,
-                      fillColor: AppColors.primaryBlueDark,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      prefixIcon: Icon(Icons.confirmation_num_outlined, color: AppColors.gold.withOpacity(0.8), size: 18),
+                // Ambient top decorative circle
+                Positioned(
+                  top: -140,
+                  right: -150,
+                  child: Container(
+                    width: 360,
+                    height: 360,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.07),
                     ),
-                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.white, letterSpacing: 1.5),
-                    textCapitalization: TextCapitalization.characters,
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: bookingData.discountCode != null
-                      ? null
-                      : () async {
-                          final result = await provider.applyCoupon(_couponController.text);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(result['message']),
-                                backgroundColor: result['success'] ? Colors.green : Colors.red,
-                                behavior: SnackBarBehavior.floating,
+
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // Header Bar
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'Review order',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _showCancelConfirmation,
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Progress Steps Bar (Step 4 of 4 filled)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: List.generate(4, (index) {
+                            return Expanded(
+                              child: Container(
+                                margin: EdgeInsets.only(right: index < 3 ? 6 : 0),
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(4),
+                                  color: const Color(0xFFFFC73A),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x99FFC73A),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.gold,
-                    foregroundColor: AppColors.primaryBlueDark,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                  ),
-                  child: Text(
-                    bookingData.discountCode != null ? 'Applied' : 'Apply',
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.8),
+                          }),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Scrollable content stack
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                          children: [
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 480),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    // 1. Total to pay card (cd tot)
+                                    _buildTotalCard(d, provider),
+                                    const SizedBox(height: 16),
+
+                                    // 2. Collection & delivery card (cd v)
+                                    _buildCollectionDeliveryCard(d),
+                                    const SizedBox(height: 16),
+
+                                    // 3. Services card (cd bl)
+                                    _buildServicesCard(d, provider, grouped),
+                                    const SizedBox(height: 16),
+
+                                    // 4. Collection address card (cd te inf)
+                                    _buildAddressCard(d),
+                                    const SizedBox(height: 16),
+
+                                    // 5. Contact information card (cd v inf)
+                                    _buildContactCard(d),
+                                    const SizedBox(height: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          if (bookingData.discountCode != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.greenAccent, size: 14),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Coupon ${bookingData.discountCode} applied',
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.w500),
+
+                // Fixed Bottom Dock CTA
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      14,
+                      16,
+                      14 + MediaQuery.of(context).padding.bottom,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          const Color(0xFF0A2468).withValues(alpha: 0.85),
+                        ],
+                      ),
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 448),
+                        child: GestureDetector(
+                          onTap: d.selectedItems.isEmpty ? null : () => _payNow(d),
+                          child: Container(
+                            height: 58,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFFFFD25E), Color(0xFFFFB400)],
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x8CFFB400),
+                                  blurRadius: 20,
+                                  offset: Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.lock_rounded,
+                                  color: Color(0xFF0B1F5B),
+                                  size: 21,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'PAY NOW  £${total.toStringAsFixed(2)}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                    color: const Color(0xFF0B1F5B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              ),
-            ),
-        ],
-      ],
-    );
-  }
-
-  Widget _priceRow(String label, String value, {bool isTotal = false, bool isDiscount = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: isTotal ? 15 : 13,
-              fontWeight: isTotal ? FontWeight.w800 : FontWeight.w500,
-              color: isDiscount ? Colors.greenAccent : AppColors.white,
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: isTotal ? 18 : 14,
-              fontWeight: isTotal ? FontWeight.w900 : FontWeight.w700,
-              color: isTotal ? AppColors.gold : (isDiscount ? Colors.greenAccent : AppColors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Bottom pay button ────────────────────────────────────────────────────
-
-  Widget _buildBottomPayButton() {
-    return Consumer<BookingProvider>(
-      builder: (context, provider, child) {
-        final bookingData = provider.bookingData;
-        final discountedSubtotal = bookingData.discountedSubtotal;
-        const serviceFee = 2.99;
-        const deliveryFee = 0.0;
-        final preTaxTotal = discountedSubtotal + serviceFee + deliveryFee;
-        final taxAmount = preTaxTotal * 0.20;
-        final total = preTaxTotal + taxAmount;
-
-        return Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          decoration: BoxDecoration(
-            color: AppColors.primaryBlueDark,
-            border: Border(top: BorderSide(color: AppColors.gold.withOpacity(0.3))),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: bookingData.selectedItems.isNotEmpty
-                    ? () {
-                        if (_validateOrder(bookingData)) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => PaymentScreen(amount: total)),
-                          );
-                        }
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: AppColors.primaryBlueDark,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
                 ),
-                child: Text(
-                  'PAY NOW  £${total.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.4),
-                ),
-              ),
+              ],
             ),
           ),
         );
       },
+    );
+  }
+
+  // ── 1. Total to pay card (cd tot) ──────────────────────────────────────────
+
+  Widget _buildTotalCard(BookingData d, BookingProvider provider) {
+    final hasCoupon = d.discountCode != null;
+    final itemsCount = d.selectedItems.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x8C02104C),
+            blurRadius: 30,
+            offset: Offset(0, 16),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Column(
+          children: [
+            // Top gradient header (th)
+            Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF1553D6), Color(0xFF4F46E5)],
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total to pay',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.92),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '£${d.totalAmount.toStringAsFixed(2)}',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 42,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -1.2,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                        child: Text(
+                          '$itemsCount ${itemsCount == 1 ? 'item' : 'items'}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Decorative circles in header
+                Positioned(
+                  top: -56,
+                  right: -34,
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.13),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -60,
+                  left: 180,
+                  child: Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Body breakdown (tb)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+              child: Column(
+                children: [
+                  _buildPriceLine('Subtotal', '£${d.subtotal.toStringAsFixed(2)}'),
+                  if (d.discountAmount > 0) ...[
+                    const SizedBox(height: 6),
+                    _buildPriceLine(
+                      'Discount (${d.discountCode})',
+                      '-£${d.discountAmount.toStringAsFixed(2)}',
+                      isDiscount: true,
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  _buildPriceLine('Service fee', '£${BookingData.serviceFee.toStringAsFixed(2)}'),
+                  const SizedBox(height: 6),
+                  _buildPriceLine('Delivery fee', 'FREE', isFreePill: true),
+                  const SizedBox(height: 10),
+
+                  // Dashed Divider
+                  CustomPaint(
+                    size: const Size(double.infinity, 2),
+                    painter: const DashedDividerPainter(
+                      color: Color(0xFFDCE5F8),
+                      strokeWidth: 2,
+                      dashWidth: 6,
+                      dashSpace: 4,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Total line
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0B1F5B),
+                        ),
+                      ),
+                      Text(
+                        '£${d.totalAmount.toStringAsFixed(2)}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0B1F5B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Coupon expandable
+                  GestureDetector(
+                    onTap: () => setState(() => _showCouponField = !_showCouponField),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.local_offer_rounded, color: Color(0xFF1553D6), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              hasCoupon ? 'Coupon applied: ${d.discountCode}' : 'Have a coupon code?',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: hasCoupon ? const Color(0xFF0A5C36) : const Color(0xFF1553D6),
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            _showCouponField ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                            color: const Color(0xFF1553D6),
+                            size: 22,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Coupon Input Form
+                  if (_showCouponField && !hasCoupon) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE1E9FB), width: 2),
+                              color: const Color(0xFFF4F7FF),
+                            ),
+                            child: Center(
+                              child: TextField(
+                                controller: _couponController,
+                                textCapitalization: TextCapitalization.characters,
+                                cursorColor: const Color(0xFF1553D6),
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0B1F5B),
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter code',
+                                  hintStyle: GoogleFonts.plusJakartaSans(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF5B6B9A),
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _applyingCoupon ? null : () => _applyCoupon(provider),
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              color: const Color(0xFF1553D6),
+                            ),
+                            child: Center(
+                              child: _applyingCoupon
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Text(
+                                      'Apply',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceLine(String label, String value, {bool isDiscount = false, bool isFreePill = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15.5,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF5B6B9A),
+          ),
+        ),
+        if (isFreePill)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: const Color(0xFFDDF6E6),
+            ),
+            child: Text(
+              'FREE',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0A5C36),
+                letterSpacing: 0.6,
+              ),
+            ),
+          )
+        else
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w800,
+              color: isDiscount ? const Color(0xFF0A5C36) : const Color(0xFF0B1F5B),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── 2. Collection & delivery card (cd v) ────────────────────────────────────
+
+  Widget _buildCollectionDeliveryCard(BookingData d) {
+    return _buildCardBase(
+      accentColor: const Color(0xFF4338CA),
+      accentBg: const Color(0xFFEEF0FF),
+      icon: Icons.calendar_month_rounded,
+      title: 'Collection & delivery',
+      onEdit: () => _navigateTo(const TimeSlotsScreen(isEditMode: true), '/time_slots'),
+      child: Column(
+        children: [
+          // Collection row with Vector Calendar & Clock badge
+          _buildTimelineSlotRow(
+            isCollection: true,
+            label: 'COLLECTION',
+            dateTime: '${d.collectionDate ?? 'Not selected'} · ${d.collectionTime ?? ''}',
+            method: d.collectionMethod ?? 'Collect from me in person',
+            accentColor: const Color(0xFF4338CA),
+            accentBg: const Color(0xFFEEF0FF),
+          ),
+          const SizedBox(height: 12),
+
+          // Delivery row with Vector Delivery Van badge
+          _buildTimelineSlotRow(
+            isCollection: false,
+            label: 'DELIVERY',
+            dateTime: '${d.deliveryDate ?? 'Not selected'} · ${d.deliveryTime ?? ''}',
+            method: d.deliveryMethod ?? 'Deliver to me in person',
+            accentColor: const Color(0xFF0B6E64),
+            accentBg: const Color(0xFFE4F7F0),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineSlotRow({
+    required bool isCollection,
+    required String label,
+    required String dateTime,
+    required String method,
+    required Color accentColor,
+    required Color accentBg,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 50x50 white box illustration badge with vector icon
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: accentBg,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF02104C).withValues(alpha: 0.15),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: CustomPaint(
+              size: const Size(38, 38),
+              painter: isCollection
+                  ? const CollectionBadgePainter()
+                  : const DeliveryBadgePainter(),
+            ),
+          ),
+        ),
+        const SizedBox(width: 14),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF5B6B9A),
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                dateTime,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0B1F5B),
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                method,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF5B6B9A),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── 3. Services card (cd bl) ────────────────────────────────────────────────
+
+  Widget _buildServicesCard(BookingData d, BookingProvider provider, Map<String, List<ServiceItem>> grouped) {
+    final count = d.selectedItems.length;
+
+    return _buildCardBase(
+      accentColor: const Color(0xFF1553D6),
+      accentBg: const Color(0xFFE8F0FF),
+      icon: Icons.local_laundry_service_rounded,
+      title: 'Services',
+      subtitle: '$count ${count == 1 ? 'item' : 'items'}',
+      onEdit: () {
+        final svc = provider.selectedService ?? 'Dry Clean';
+        _navigateTo(
+          ServiceOverviewScreen(serviceType: svc, isEditMode: true),
+          '/service_overview',
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Service Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: const Color(0xFFF4F7FF),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF1553D6), Color(0xFF3B82F6)],
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.dry_cleaning_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  provider.selectedService ?? 'Dry Clean',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0B1F5B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Items list
+          if (grouped.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No items selected',
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFF5B6B9A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          else
+            ...grouped.entries.expand((entry) => entry.value).map((item) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFE8F0FF),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0B1F5B).withValues(alpha: 0.1),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Image.asset(
+                          _getIconForCategory(item.category),
+                          width: 26,
+                          height: 26,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        item.itemType,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0B1F5B),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '£${item.numericPrice.toStringAsFixed(2)}',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0B1F5B),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  String _getIconForCategory(String category) {
+    final s = category.toLowerCase();
+    if (s.contains('duvet') || s.contains('bedding')) {
+      return 'assets/images/price_duvet.png';
+    } else if (s.contains('laundry')) {
+      return 'assets/images/price_laundry.png';
+    } else if (s.contains('wash')) {
+      return 'assets/images/price_wash.png';
+    } else if (s.contains('household') || s.contains('iron')) {
+      return 'assets/images/price_household.png';
+    }
+    return 'assets/images/price_dryclean.png';
+  }
+
+  // ── 4. Collection address card (cd te inf) ──────────────────────────────────
+
+  Widget _buildAddressCard(BookingData d) {
+    return _buildCardBase(
+      accentColor: const Color(0xFF0B6E64),
+      accentBg: const Color(0xFFE4F7F0),
+      icon: Icons.location_on_rounded,
+      title: 'Collection address',
+      isSmallTitle: true,
+      subtitleContent: d.selectedAddress?.fullAddress ?? 'No address selected',
+      onEdit: () => _navigateTo(const AddressSelectionScreen(isEditMode: true), '/address_selection'),
+      child: const SizedBox.shrink(),
+    );
+  }
+
+  // ── 5. Contact information card (cd v inf) ──────────────────────────────────
+
+  Widget _buildContactCard(BookingData d) {
+    final name = '${d.firstName} ${d.lastName}'.trim();
+    final phone = d.phone;
+
+    return _buildCardBase(
+      accentColor: const Color(0xFF4338CA),
+      accentBg: const Color(0xFFEEF0FF),
+      icon: Icons.person_rounded,
+      title: 'Contact information',
+      isSmallTitle: true,
+      subtitleContent: name.isNotEmpty ? name : 'Name not provided',
+      extraContent: phone.isNotEmpty ? phone : null,
+      onEdit: () => _navigateTo(const ContactInfoScreen(isEditMode: true), '/contact_info'),
+      child: const SizedBox.shrink(),
+    );
+  }
+
+  // ── Reusable Card Base ─────────────────────────────────────────────────────
+
+  Widget _buildCardBase({
+    required Color accentColor,
+    required Color accentBg,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    bool isSmallTitle = false,
+    String? subtitleContent,
+    String? extraContent,
+    required VoidCallback onEdit,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x8C02104C),
+            blurRadius: 30,
+            offset: Offset(0, 16),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            // Background disc (top-right)
+            Positioned(
+              top: -70,
+              right: -60,
+              child: Container(
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accentBg,
+                ),
+              ),
+            ),
+
+            // Card body
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header Row
+                  Row(
+                    crossAxisAlignment: isSmallTitle ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [accentColor, accentColor.withValues(alpha: 0.85)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accentColor.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Icon(icon, color: Colors.white, size: 23),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: isSmallTitle
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title.toUpperCase(),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF5B6B9A),
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    subtitleContent ?? '',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF0B1F5B),
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                  if (extraContent != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      extraContent,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF0B1F5B),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF0B1F5B),
+                                    ),
+                                  ),
+                                  if (subtitle != null) ...[
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      subtitle,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF5B6B9A),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Edit Button
+                      GestureDetector(
+                        onTap: onEdit,
+                        child: Container(
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: accentBg,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.edit_outlined, color: accentColor, size: 15),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Edit',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: accentColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (child is! SizedBox || child.height != 0) ...[
+                    const SizedBox(height: 14),
+                    child,
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
