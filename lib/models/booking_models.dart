@@ -466,12 +466,17 @@ class Order {
   }
 
   Map<String, dynamic> toJson() {
+    final addr = bookingData.selectedAddress ?? bookingData.deliveryAddress;
+    final lat = addr?.latitude;
+    final lng = addr?.longitude;
     return {
       'id': id,
       'orderId': orderId,
       'bookingData': bookingData.toJson(),
       'type': type,
       'status': status,
+      if (addr != null) 'address': addr.toJson(),
+      if (lat != null && lng != null) 'geo': {'lat': lat, 'lng': lng},
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'deliveredAt': deliveredAt?.toIso8601String(),
