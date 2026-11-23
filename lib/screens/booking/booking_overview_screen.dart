@@ -24,6 +24,7 @@ class BookingOverviewScreen extends StatefulWidget {
 class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
   bool _showCouponField = false;
   bool _applyingCoupon = false;
+  bool _isServicesExpanded = false;
   final TextEditingController _couponController = TextEditingController();
 
   @override
@@ -252,11 +253,11 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
                                     _buildTotalCard(d, provider),
                                     const SizedBox(height: 16),
 
-                                    // 2. Collection & delivery card (cd v)
+                                    // 2. Collection & delivery card (cd v) - Zoomed out compact style
                                     _buildCollectionDeliveryCard(d),
                                     const SizedBox(height: 16),
 
-                                    // 3. Services card (cd bl)
+                                    // 3. Services card (cd bl) - Short summary with dropdown
                                     _buildServicesCard(d, provider, grouped),
                                     const SizedBox(height: 16),
 
@@ -673,7 +674,7 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
     );
   }
 
-  // ── 2. Collection & delivery card (cd v) ────────────────────────────────────
+  // ── 2. Collection & delivery card (cd v) - Zoomed Out Compact ───────────────
 
   Widget _buildCollectionDeliveryCard(BookingData d) {
     return _buildCardBase(
@@ -693,7 +694,7 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
             accentColor: const Color(0xFF4338CA),
             accentBg: const Color(0xFFEEF0FF),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Delivery row with Vector Delivery Van badge
           _buildTimelineSlotRow(
@@ -720,32 +721,32 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 50x50 white box illustration badge with vector icon
+        // 38x38 compact illustration badge with vector icon
         Container(
-          width: 50,
-          height: 50,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             color: accentBg,
             border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF02104C).withValues(alpha: 0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: const Color(0xFF02104C).withValues(alpha: 0.12),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Center(
             child: CustomPaint(
-              size: const Size(38, 38),
+              size: const Size(26, 26),
               painter: isCollection
                   ? const CollectionBadgePainter()
                   : const DeliveryBadgePainter(),
             ),
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
 
         Expanded(
           child: Column(
@@ -754,26 +755,25 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
               Text(
                 label,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: const Color(0xFF5B6B9A),
-                  letterSpacing: 0.8,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                dateTime,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0B1F5B),
+                  letterSpacing: 0.6,
                 ),
               ),
               const SizedBox(height: 1),
               Text(
+                dateTime,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0B1F5B),
+                ),
+              ),
+              Text(
                 method,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF5B6B9A),
                 ),
@@ -785,10 +785,11 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
     );
   }
 
-  // ── 3. Services card (cd bl) ────────────────────────────────────────────────
+  // ── 3. Services card (cd bl) - Short Summary with Dropdown ───────────────────
 
   Widget _buildServicesCard(BookingData d, BookingProvider provider, Map<String, List<ServiceItem>> grouped) {
     final count = d.selectedItems.length;
+    final allItems = grouped.entries.expand((entry) => entry.value).toList();
 
     return _buildCardBase(
       accentColor: const Color(0xFF1553D6),
@@ -806,9 +807,9 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Service Banner
+          // Service Banner & Dropdown Toggle Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               color: const Color(0xFFF4F7FF),
@@ -829,21 +830,68 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  provider.selectedService ?? 'Dry Clean',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0B1F5B),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        provider.selectedService ?? 'Dry Clean',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0B1F5B),
+                        ),
+                      ),
+                      Text(
+                        '$count ${count == 1 ? 'item' : 'items'} in order',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF5B6B9A),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                if (allItems.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => setState(() => _isServicesExpanded = !_isServicesExpanded),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _isServicesExpanded ? const Color(0xFF1553D6) : const Color(0xFFE8F0FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _isServicesExpanded ? 'Hide' : 'Check items',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _isServicesExpanded ? Colors.white : const Color(0xFF1553D6),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _isServicesExpanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            size: 16,
+                            color: _isServicesExpanded ? Colors.white : const Color(0xFF1553D6),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
 
-          // Items list
-          if (grouped.isEmpty)
+          // Collapsible Items List
+          if (allItems.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
@@ -854,22 +902,23 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
                 ),
               ),
             )
-          else
-            ...grouped.entries.expand((entry) => entry.value).map((item) {
+          else if (_isServicesExpanded) ...[
+            const SizedBox(height: 10),
+            ...allItems.map((item) {
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Row(
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: const Color(0xFFE8F0FF),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF0B1F5B).withValues(alpha: 0.1),
-                            blurRadius: 6,
+                            color: const Color(0xFF0B1F5B).withValues(alpha: 0.08),
+                            blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -877,18 +926,18 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
                       child: Center(
                         child: Image.asset(
                           _getIconForCategory(item.category),
-                          width: 26,
-                          height: 26,
+                          width: 22,
+                          height: 22,
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         item.itemType,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 16,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF0B1F5B),
                         ),
@@ -897,7 +946,7 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
                     Text(
                       '£${item.numericPrice.toStringAsFixed(2)}',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0B1F5B),
                       ),
@@ -906,6 +955,7 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
                 ),
               );
             }),
+          ],
         ],
       ),
     );

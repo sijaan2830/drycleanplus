@@ -48,5 +48,18 @@ app.*.map.json
 admin/
 service-account.json
 *.aab
+
+# Temp debug artifacts in root
+/*.png
+/*.jpg
+/*.py
+/*.pdf
+/*.txt
+/*.patch
+/*.html
+/app_store_screenshots_ipad/
+/marketing_poster/
+/functions/
+
 *.apk
 

@@ -77,10 +77,10 @@ class _DrycleanCitySceneState extends State<DrycleanCityScene>
       duration: const Duration(seconds: 9),
     )..repeat();
 
-    // Van vertical bobbing (380ms alternate)
+    // Van vertical bobbing (650ms alternate, soft and gentle)
     _bobController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 380),
+      duration: const Duration(milliseconds: 650),
     )..repeat(reverse: true);
 
     // Van horizontal drift (4.6s alternate)
@@ -161,7 +161,7 @@ class _DrycleanCitySceneState extends State<DrycleanCityScene>
         final double dashT = _dashController.value;
         final double wheelAngle = _wheelController.value * 2.0 * math.pi;
         final double busT = _busController.value;
-        final double bobY = (math.sin(_bobController.value * math.pi) * 2.2);
+        final double bobY = (math.sin(_bobController.value * math.pi) * 0.85);
         final double driftX = (math.sin(_driftController.value * math.pi) * 8.0);
         final double eyeAngle = _eyeController.value * 2.0 * math.pi;
 
@@ -172,21 +172,23 @@ class _DrycleanCitySceneState extends State<DrycleanCityScene>
           vanAnimX = (1.0 - Curves.easeOutCubic.transform(_driveInController.value)) * -400.0;
         }
 
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _CityScenePainter(
-            mode: widget.mode,
-            farT: farT,
-            midT: midT,
-            foreT: foreT,
-            dashT: dashT,
-            wheelAngle: wheelAngle,
-            busT: busT,
-            bobY: bobY,
-            driftX: driftX,
-            eyeAngle: eyeAngle,
-            vanAnimX: vanAnimX,
-            isVanSpeeding: _driveOutController.isAnimating,
+        return RepaintBoundary(
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _CityScenePainter(
+              mode: widget.mode,
+              farT: farT,
+              midT: midT,
+              foreT: foreT,
+              dashT: dashT,
+              wheelAngle: wheelAngle,
+              busT: busT,
+              bobY: bobY,
+              driftX: driftX,
+              eyeAngle: eyeAngle,
+              vanAnimX: vanAnimX,
+              isVanSpeeding: _driveOutController.isAnimating,
+            ),
           ),
         );
       },
@@ -234,20 +236,26 @@ class _CityScenePainter extends CustomPainter {
     canvas.clipRect(Offset.zero & size);
 
     if (mode == SceneDisplayMode.full) {
-      final double sx = size.width / 300.0;
-      final double sy = size.height / 330.0;
-      final double s = math.min(sx, sy > 0 ? sy : sx);
-      canvas.scale(s, s);
-      canvas.translate(-40.0, -190.0);
-    } else {
-      final double sx = size.width / 390.0;
-      final double sy = size.height / 320.0;
-      final double s = math.min(sx, sy > 0 ? sy : sx);
-      final double dx = (size.width - 390.0 * s) / 2.0;
-      final double dy = size.height - (504.0 * s);
-      canvas.translate(dx, dy);
+      // Dedicated Splash Screen view matching HTML splash spec:
+      // Aspect ratio 310/330, viewBox: 20 190 310 330 with preserveAspectRatio="xMidYMax slice"
+      // Big, tall, grand city scene with London Eye, Big Ben & DC+ Shopfront.
+      const double vw = 310.0;
+      const double vh = 330.0;
+      final double sx = size.width / vw;
+      final double sy = size.height / vh;
+      final double s = math.max(sx, sy);
       canvas.scale(s, s);
 
+      final double dx = 20.0 - (size.width / s - vw) / 2.0;
+      final double dy = 520.0 - (size.height / s);
+      canvas.translate(-dx, -dy);
+    } else {
+      // Dedicated Onboarding band view (viewBox: 0 300 390 220 docked to bottom)
+      final double s = size.width / 390.0;
+      final double dx = (size.width - 390.0 * s) / 2.0;
+      final double dy = size.height - (520.0 * s);
+      canvas.translate(dx, dy);
+      canvas.scale(s, s);
     }
 
     // 1. Twinkling Stars
@@ -268,7 +276,7 @@ class _CityScenePainter extends CustomPainter {
     // 6. Animated DC+ Delivery Van with Waving Flag
     _drawVan(canvas);
 
-    // 7. Foreground Lampposts & Phone Box
+    // 7. Foreground Lampposts & Red Pillar Box (on bottom curb roadEndY + 4)
     _drawForeground(canvas);
 
     canvas.restore();
@@ -423,38 +431,32 @@ class _CityScenePainter extends CustomPainter {
   void _drawDCShopfront(Canvas canvas) {
     canvas.drawRect(const Rect.fromLTWH(130, -64, 100, 64), Paint()..color = const Color(0xFF1B5CF0));
 
+    // Sign background (76x20 at x=142, y=-58)
     canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(133, -60, 94, 22), const Radius.circular(5)),
+      RRect.fromRectAndRadius(const Rect.fromLTWH(140, -58, 80, 20), const Radius.circular(5)),
       Paint()..color = const Color(0xFF071B49),
     );
 
-    _drawVanPickBadge(canvas, const Offset(136, -58), 18);
-
+    // ONLY "DrycleanPlus+" text (NO logo badge, matching user instruction)
     final signTp = TextPainter(
       text: TextSpan(
         style: GoogleFonts.satisfy(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w800,
-          color: Colors.white,
+          fontSize: 14.0,
+          fontWeight: FontWeight.w700,
+          fontStyle: FontStyle.italic,
         ),
         children: const [
-
-          TextSpan(
-
-
-          ),
           TextSpan(text: 'Dryclean', style: TextStyle(color: Colors.white)),
           TextSpan(text: 'Plus', style: TextStyle(color: Color(0xFFE5262D))),
           TextSpan(
-
             text: '+',
-            style: TextStyle(color: Color(0xFFE5262D), fontWeight: FontWeight.w900),
+            style: TextStyle(color: Color(0xFFE5262D), fontSize: 13, fontWeight: FontWeight.w900),
           ),
         ],
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    signTp.paint(canvas, const Offset(158, -56.5));
+    signTp.paint(canvas, Offset(180 - signTp.width / 2.0, -48 - signTp.height / 2.0));
 
     for (int i = 0; i < 6; i++) {
       final awningColor = (i % 2 == 1) ? const Color(0xFF9CC2FF) : Colors.white;
@@ -510,26 +512,33 @@ class _CityScenePainter extends CustomPainter {
   }
 
   void _drawRoadAndPavement(Canvas canvas) {
-    canvas.drawRect(const Rect.fromLTWH(0, groundY, viewW, 12), Paint()..color = const Color(0xFF0D36A0));
-    canvas.drawRect(const Rect.fromLTWH(0, curbY, viewW, 3), Paint()..color = const Color(0xFF336EE0));
-    canvas.drawRect(const Rect.fromLTWH(0, curbY + 3, viewW, roadEndY - curbY), Paint()..color = const Color(0xFF09205A));
+    canvas.drawRect(const Rect.fromLTWH(-150, groundY, viewW + 300, 12), Paint()..color = const Color(0xFF0D36A0));
+    canvas.drawRect(const Rect.fromLTWH(-150, curbY, viewW + 300, 3), Paint()..color = const Color(0xFF336EE0));
+    canvas.drawRect(const Rect.fromLTWH(-150, curbY + 3, viewW + 300, roadEndY - curbY), Paint()..color = const Color(0xFF09205A));
 
     final double dashShift = -dashT * 54.0;
     final dashPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.55)
       ..strokeWidth = 3.0;
 
-    for (double x = -60.0 + dashShift; x < 450.0; x += 54.0) {
+    for (double x = -150.0 + dashShift; x < 550.0; x += 54.0) {
       canvas.drawLine(Offset(x, 451), Offset(x + 30, 451), dashPaint);
     }
 
-    canvas.drawRect(const Rect.fromLTWH(0, roadEndY, viewW, 16), Paint()..color = const Color(0xFF12358F));
-    canvas.drawRect(const Rect.fromLTWH(0, roadEndY, viewW, 2), Paint()..color = const Color(0xFF3A74F0));
+    canvas.drawRect(const Rect.fromLTWH(-150, roadEndY, viewW + 300, 16), Paint()..color = const Color(0xFF12358F));
+    canvas.drawRect(const Rect.fromLTWH(-150, roadEndY, viewW + 300, 2), Paint()..color = const Color(0xFF3A74F0));
   }
 
   void _drawBus(Canvas canvas) {
-    double busX = 470.0 - (busT * 670.0);
-    if (busX < -200.0) return;
+    // Bus drives smoothly across in 36% of cycle, then waits offscreen matching HTML spec
+    double busX;
+    if (busT < 0.36) {
+      final double progress = busT / 0.36;
+      busX = 470.0 - (progress * 670.0);
+    } else {
+      return;
+    }
+    if (busX < -200.0 || busX > 470.0) return;
 
     canvas.save();
     canvas.translate(busX, 391.0);
@@ -580,8 +589,14 @@ class _CityScenePainter extends CustomPainter {
   void _drawVan(Canvas canvas) {
     canvas.save();
 
-    canvas.translate(96.0 + driftX + vanAnimX, 382.0 + bobY);
-    canvas.scale(1.05, 1.05);
+    final bool isFull = mode == SceneDisplayMode.full;
+    // Normalized so physical van size on user screen is exactly equal in both Splash and Onboarding!
+    final double vanScale = isFull ? 0.81 : 1.02;
+    final double baseVanX = isFull ? 96.0 : 112.0;
+    final double baseVanY = 474.0 - (92.0 * vanScale);
+
+    canvas.translate(baseVanX + driftX + vanAnimX, baseVanY + bobY);
+    canvas.scale(vanScale, vanScale);
 
     // Waving Flag Banner trailing behind the van
     _drawWavingFlag(canvas);
@@ -592,15 +607,23 @@ class _CityScenePainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.35),
     );
 
-    // Low wheel speedlines (no line across flag)
-    final speedLinePaint = Paint()
+    // Exactly 2 aerodynamic trailing wave lines rippling behind the van
+    final waveLinePaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.55)
-      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round;
 
-    final double slT = (dashT * 46.0);
-    canvas.drawLine(Offset(-8 - slT, 74), Offset(-52 - slT, 74), speedLinePaint);
-    canvas.drawLine(Offset(-16 - slT, 80), Offset(-60 - slT, 80), speedLinePaint);
+    final double wavePhase = dashT * 2.0 * math.pi;
+    final path1 = Path()
+      ..moveTo(-10, 52)
+      ..quadraticBezierTo(-30, 52 + math.sin(wavePhase) * 2.5, -56, 52);
+    canvas.drawPath(path1, waveLinePaint);
+
+    final path2 = Path()
+      ..moveTo(-16, 76)
+      ..quadraticBezierTo(-38, 76 + math.cos(wavePhase) * 2.5, -64, 76);
+    canvas.drawPath(path2, waveLinePaint);
 
     final vanBodyGradient = const LinearGradient(
       colors: [Colors.white, Color(0xFFC9D4EA)],
@@ -675,7 +698,6 @@ class _CityScenePainter extends CustomPainter {
             style: TextStyle(color: Color(0xFFE5262D)),
           ),
           TextSpan(
-
             text: '+',
             style: TextStyle(color: Color(0xFFE5262D), fontSize: 13),
           ),
@@ -700,8 +722,70 @@ class _CityScenePainter extends CustomPainter {
     )..layout(maxWidth: 80);
     subTp.paint(canvas, const Offset(38, 35));
 
-    // Headlight
-    canvas.drawCircle(const Offset(187, 70), 4, Paint()..color = const Color(0xFFFFD75E));
+    // Luminous illuminated headlight beam cone projecting forward onto road
+    final beamPath = Path()
+      ..moveTo(187, 66)
+      ..lineTo(356, 26)
+      ..lineTo(356, 118)
+      ..lineTo(187, 76)
+      ..close();
+    final beamGradient = const LinearGradient(
+      colors: [
+        Color(0xB3FFF8C4),
+        Color(0x66FFE885),
+        Color(0x00FFE885),
+      ],
+      stops: [0.0, 0.45, 1.0],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    );
+    canvas.drawPath(
+      beamPath,
+      Paint()
+        ..shader = beamGradient.createShader(const Rect.fromLTWH(187, 26, 169, 92)),
+    );
+
+    // Inner bright core light cone
+    final coreBeamPath = Path()
+      ..moveTo(187, 68)
+      ..lineTo(312, 48)
+      ..lineTo(312, 98)
+      ..lineTo(187, 74)
+      ..close();
+    canvas.drawPath(
+      coreBeamPath,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xEEFFFFFF), Color(0x55FFF3B8), Color(0x00FFF3B8)],
+          stops: [0.0, 0.40, 1.0],
+        ).createShader(const Rect.fromLTWH(187, 48, 125, 50)),
+    );
+
+    // Projected warm luminous pool of light on the asphalt road surface
+    canvas.drawOval(
+      const Rect.fromLTWH(206, 76, 134, 20),
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0x59FFE885), Color(0x00FFE885)],
+        ).createShader(const Rect.fromLTWH(206, 76, 134, 20)),
+    );
+
+    // Radiant glowing headlight bulb & lens flare
+    canvas.drawCircle(
+      const Offset(187, 71),
+      10,
+      Paint()..color = const Color(0x55FFE885),
+    );
+    canvas.drawCircle(
+      const Offset(187, 71),
+      6,
+      Paint()..color = const Color(0xFFFFFAEB),
+    );
+    canvas.drawCircle(
+      const Offset(187, 71),
+      3.2,
+      Paint()..color = Colors.white,
+    );
 
     // Taillight
     canvas.drawRRect(
@@ -788,20 +872,21 @@ class _CityScenePainter extends CustomPainter {
   void _drawWavingFlag(Canvas canvas) {
     canvas.save();
 
-    final double speedFactor = isVanSpeeding ? 2.2 : 1.0;
-    final double animPhase = (dashT * 2.0 * math.pi * 2.0);
+    final double speedFactor = isVanSpeeding ? 2.4 : 1.0;
+    // Calm, gentle ~1.3 Hz cruising wave that accelerates gracefully when speeding up
+    final double animPhase = (midT * 8.5 * 2.0 * math.pi) * speedFactor;
 
+    // Flag seamlessly flows from van rear with a sleek chrome mount
     final polePaint = Paint()
       ..color = const Color(0xFFD4DEEE)
-      ..strokeWidth = 2.4
+      ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(const Offset(0, 10), const Offset(0, 44), polePaint);
-    canvas.drawCircle(const Offset(0, 9), 2.8, Paint()..color = const Color(0xFFFFD25E));
+    canvas.drawLine(const Offset(0, 16), const Offset(0, 38), polePaint);
 
-    const double startY = 14.0;
-    const double flagLength = 86.0;
-    const double flagHeight = 25.0;
-    const int segments = 22;
+    const double startY = 15.0;
+    const double flagLength = 62.0;
+    const double flagHeight = 22.0;
+    const int segments = 20;
 
     final List<Offset> topPoints = [];
     final List<Offset> botPoints = [];
@@ -809,8 +894,8 @@ class _CityScenePainter extends CustomPainter {
     for (int i = 0; i <= segments; i++) {
       final double progress = i / segments.toDouble();
       final double x = -progress * flagLength;
-      final double wave1 = math.sin(animPhase - progress * 2.5 * math.pi) * (2.8 * progress * speedFactor);
-      final double wave2 = math.cos(animPhase * 1.5 - progress * 4.0 * math.pi) * (1.2 * progress * speedFactor);
+      final double wave1 = math.sin(animPhase - progress * 1.8 * math.pi) * (1.2 * progress * speedFactor);
+      final double wave2 = math.cos(animPhase * 0.8 - progress * 2.6 * math.pi) * (0.5 * progress * speedFactor);
       final double totalWave = wave1 + wave2;
 
       topPoints.add(Offset(x, startY + totalWave));
@@ -824,7 +909,7 @@ class _CityScenePainter extends CustomPainter {
     }
 
     final double tailWave = topPoints.last.dy - startY;
-    final Offset notchPoint = Offset(-flagLength + 10.0, startY + (flagHeight / 2.0) + tailWave);
+    final Offset notchPoint = Offset(-flagLength + 8.0, startY + (flagHeight / 2.0) + tailWave);
     flagPath.lineTo(notchPoint.dx, notchPoint.dy);
     flagPath.lineTo(botPoints.last.dx, botPoints.last.dy);
 
@@ -860,7 +945,7 @@ class _CityScenePainter extends CustomPainter {
         ..strokeWidth = 0.9,
     );
 
-    final int midIdx = (segments * 0.44).round();
+    final int midIdx = (segments * 0.46).round();
     final double midX = topPoints[midIdx].dx;
     final double midY = (topPoints[midIdx].dy + botPoints[midIdx].dy) / 2.0;
 
@@ -874,10 +959,10 @@ class _CityScenePainter extends CustomPainter {
 
     final flagTp = TextPainter(
       text: TextSpan(
-        style: GoogleFonts.satisfy(
-          fontSize: 7.2,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 6.5,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.2,
+          letterSpacing: 0.1,
           height: 1.15,
         ),
         children: const [
@@ -893,7 +978,7 @@ class _CityScenePainter extends CustomPainter {
             style: TextStyle(
               color: Color(0xFFFFD25E),
               fontWeight: FontWeight.w700,
-              fontSize: 6.5,
+              fontSize: 5.7,
               shadows: [Shadow(color: Color(0x99000000), blurRadius: 3, offset: Offset(0, 1))],
             ),
           ),
@@ -901,7 +986,7 @@ class _CityScenePainter extends CustomPainter {
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: 68);
+    )..layout(maxWidth: 56);
 
     flagTp.paint(canvas, Offset(-flagTp.width / 2.0, -flagTp.height / 2.0));
     canvas.restore();
@@ -913,8 +998,21 @@ class _CityScenePainter extends CustomPainter {
     final double shift = -foreT * viewW;
     for (int i = 0; i < 3; i++) {
       canvas.save();
-      canvas.translate(shift + i * viewW, groundY);
+      // Foreground translates to roadEndY + 4.0 (508.0) matching HTML FORE: ${RB+4}
+      canvas.translate(shift + i * viewW, roadEndY + 4.0);
 
+      // 15 Fence railings along foreground curb matching HTML FORE
+      for (int f = 0; f < 15; f++) {
+        canvas.drawLine(
+          Offset(f * 26.0 + 8.0, -4),
+          Offset(f * 26.0 + 8.0, 12),
+          Paint()
+            ..color = const Color(0xFF0B2A75)
+            ..strokeWidth = 2.0,
+        );
+      }
+
+      // Lampposts grounded at bottom curb (508), extending up 192 units to 316
       for (final lx in [72.0, 266.0]) {
         canvas.drawRRect(
           RRect.fromRectAndRadius(Rect.fromLTWH(lx - 6, -6, 12, 6), const Radius.circular(2)),
@@ -946,6 +1044,7 @@ class _CityScenePainter extends CustomPainter {
         );
       }
 
+      // Red UK pillar box (postbox / fire hydrant) standing on foreground curb at 508 - 48 = 460
       canvas.drawRRect(
         RRect.fromRectAndRadius(const Rect.fromLTWH(162, -48, 16, 48), const Radius.circular(5)),
         Paint()..color = const Color(0xFFE5484D),

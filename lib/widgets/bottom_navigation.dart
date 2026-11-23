@@ -66,9 +66,9 @@ class BottomNavigation extends StatelessWidget {
     return Container(
       height: totalHeight,
       decoration: BoxDecoration(
-        color: AppColors.primaryBlueDark,
+        color: AppColors.primaryBlueDeep,
         border: Border(
-          top: BorderSide(color: AppColors.gold.withOpacity(0.3), width: 1),
+          top: BorderSide(color: Colors.white.withOpacity(0.14), width: 1),
         ),
         boxShadow: [
           BoxShadow(
@@ -105,12 +105,7 @@ class BottomNavigation extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          settings: const RouteSettings(name: '/service_overview'),
-                          builder: (context) => ServiceOverviewScreen(serviceType: 'Dry Clean'),
-                        ),
-                      );
+                      Navigator.of(context).pushNamed('/select_services');
                     },
                     child: Container(
                       width: 58,

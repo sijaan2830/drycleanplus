@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import '../widgets/persistent_footer_app.dart';
 
 /// Global navigator key for accessing the Navigator from outside the Navigator's context
@@ -39,12 +38,40 @@ class RouteNotifier extends ValueNotifier<String?> {
   factory RouteNotifier() => _instance;
   RouteNotifier._internal() : super(null);
 
+  bool _isLoggingOut = false;
+  bool get isLoggingOut => _isLoggingOut;
+
+  /// Call immediately when logout begins to prevent footer from flashing
+  /// or staying visible during splash loader transitions.
+  void startLogout() {
+    _isLoggingOut = true;
+    value = '/onboarding';
+    notifyListeners();
+  }
+
+  /// Reset logout lock (called once user lands on Onboarding or logs in)
+  void endLogout() {
+    _isLoggingOut = false;
+  }
+
+  void forceRoute(String? newValue) {
+    value = newValue;
+    notifyListeners();
+  }
+
   void updateRoute(String? newValue) {
+    if (_isLoggingOut) {
+      if (newValue == '/home') {
+        _isLoggingOut = false;
+      } else {
+        return;
+      }
+    }
     if (value == newValue) return;
 
     // Always defer to post-frame callback to avoid setState/markNeedsBuild during widget tree build/mount
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (value != newValue) {
+      if (value != newValue && !_isLoggingOut) {
         super.value = newValue;
       }
     });
@@ -83,7 +110,9 @@ class FooterNavigatorObserver extends NavigatorObserver {
   @override
   void didRemove(Route route, Route? previousRoute) {
     super.didRemove(route, previousRoute);
-    if (previousRoute != null) {
+    // Only update to previousRoute if the removed route was the current active route
+    // and we are not in the middle of a logout or pushAndRemoveUntil!
+    if (currentRoute == route.settings.name && previousRoute != null) {
       _updateRoute(previousRoute);
     }
   }

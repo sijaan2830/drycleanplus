@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../config/theme.dart';
-import 'package:shimmer/shimmer.dart';
 
+/// Terms & Conditions Screen matching Terms.html mockup.
 class TermsConditionsScreen extends StatefulWidget {
   const TermsConditionsScreen({super.key});
 
@@ -11,277 +10,558 @@ class TermsConditionsScreen extends StatefulWidget {
 }
 
 class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
-  bool _isLoading = true;
+  final ScrollController _scrollController = ScrollController();
+  final List<GlobalKey> _sectionKeys = [];
+  double _scrollProgress = 0.0;
+
+  static const List<_TermsSectionData> _sections = [
+    _TermsSectionData(
+      title: 'Introduction',
+      colorA: Color(0xFF1553D6),
+      colorB: Color(0xFF4F95FF),
+      tint: Color(0xFFE1ECFF),
+      paragraphs: [
+        'Welcome to DrycleanPlus. These Terms and Conditions govern your use of our dry cleaning and laundry services. By using our services, you agree to be bound by these terms. Please read them carefully before placing an order.',
+      ],
+      bulletGroups: [],
+    ),
+    _TermsSectionData(
+      title: 'Our Services',
+      colorA: Color(0xFF4338CA),
+      colorB: Color(0xFF8B5CF6),
+      tint: Color(0xFFE9E2FF),
+      paragraphs: [
+        'DrycleanPlus provides professional dry cleaning, laundry, and garment care services including but not limited to:',
+      ],
+      bulletGroups: [
+        _TermsBulletGroup(
+          label: '',
+          items: [
+            'Dry cleaning for all types of garments',
+            'Laundry and ironing services',
+            'Duvet and bedding cleaning',
+            'Household item cleaning',
+            'Collection and delivery services',
+          ],
+        ),
+      ],
+      footerNote: 'We reserve the right to modify, suspend, or discontinue any service at any time without prior notice.',
+    ),
+    _TermsSectionData(
+      title: 'Privacy and Data Protection',
+      colorA: Color(0xFF0B8F7A),
+      colorB: Color(0xFF34D9AE),
+      tint: Color(0xFFD9F6EC),
+      paragraphs: [],
+      bulletGroups: [
+        _TermsBulletGroup(
+          label: '',
+          items: [
+            'Your personal data is processed in accordance with our Privacy Policy',
+            'We collect and store data necessary for service delivery',
+            'Location data is used for collection and delivery purposes only',
+            'Payment information is securely processed and not stored on our servers',
+            'You have the right to access, correct, or delete your personal data',
+          ],
+        ),
+      ],
+    ),
+    _TermsSectionData(
+      title: 'Orders and Payments',
+      colorA: Color(0xFFF26B00),
+      colorB: Color(0xFFFFC53D),
+      tint: Color(0xFFFFEBB8),
+      paragraphs: [],
+      bulletGroups: [
+        _TermsBulletGroup(
+          label: '',
+          items: [
+            'All orders are subject to acceptance and item count verification at our facility',
+            'Estimated totals are calculated during checkout; final price is confirmed upon physical inspection',
+            'We accept major credit/debit cards and digital payment methods',
+            'Prepaid pack credits are applied automatically to qualifying service orders',
+            'Prices include VAT where applicable',
+          ],
+        ),
+      ],
+    ),
+    _TermsSectionData(
+      title: 'Collection and Delivery',
+      colorA: Color(0xFFD92D62),
+      colorB: Color(0xFFFF8AA5),
+      tint: Color(0xFFFFE1E8),
+      paragraphs: [],
+      bulletGroups: [
+        _TermsBulletGroup(
+          label: '',
+          items: [
+            'Collection and delivery times are selected in 30-minute arrival windows',
+            'Please ensure someone is available at the address during your chosen slot',
+            'Safe place delivery instructions can be added in your booking notes',
+            'We notify you via push notification and SMS when our driver is nearby',
+          ],
+        ),
+      ],
+    ),
+    _TermsSectionData(
+      title: 'Garment Care and Liability',
+      colorA: Color(0xFF1553D6),
+      colorB: Color(0xFF4F95FF),
+      tint: Color(0xFFE1ECFF),
+      paragraphs: [],
+      bulletGroups: [
+        _TermsBulletGroup(
+          label: '',
+          items: [
+            'Please inform us of special fabric care labels or pre-existing stains',
+            'We follow manufacturer care label instructions on every garment',
+            'Claims for items must be reported within 24 hours of delivery with photos',
+            'Liability is governed by standard industry fabric care guidelines',
+          ],
+        ),
+      ],
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Simulate loading
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    });
+    for (var i = 0; i < _sections.length; i++) {
+      _sectionKeys.add(GlobalKey());
+    }
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final max = _scrollController.position.maxScrollExtent;
+    final current = _scrollController.position.pixels;
+    if (max > 0) {
+      setState(() {
+        _scrollProgress = (current / max).clamp(0.0, 1.0);
+      });
+    }
+  }
+
+  void _scrollToSection(int index) {
+    final key = _sectionKeys[index];
+    final context = key.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+        alignment: 0.05,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryBlue,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBlue,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              Navigator.of(context).pushReplacementNamed('/onboarding');
-            }
-          },
-        ),
-        title: Text(
-          'Terms & Conditions',
-          style: GoogleFonts.inter(
-            color: AppColors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+      backgroundColor: const Color(0xFF1245B5),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF3282F8),
+              Color(0xFF1C61E4),
+              Color(0xFF1245B5),
+            ],
+            stops: [0.0, 0.4, 1.0],
           ),
         ),
-      ),
-      body: _isLoading ? _buildSkeletonContent() : _buildRealContent(),
-    );
-  }
-
-  Widget _buildSkeletonContent() {
-    return Shimmer.fromColors(
-      baseColor: AppColors.white.withOpacity(0.05),
-      highlightColor: AppColors.white.withOpacity(0.1),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            _buildSkeletonSection(),
-            const SizedBox(height: 20),
-            _buildSkeletonSection(),
-            const SizedBox(height: 20),
-            _buildSkeletonSection(),
-            const SizedBox(height: 20),
-            _buildSkeletonSection(),
+            // Ambient glow circles
+            Positioned(
+              right: -140,
+              top: -120,
+              child: Container(
+                width: 340,
+                height: 340,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.07),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -200,
+              top: 500,
+              child: Container(
+                width: 400,
+                height: 400,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.05),
+                ),
+              ),
+            ),
+
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  // Header
+                  Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.28),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.arrow_back_ios_new_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'Terms & Conditions',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 38),
+                          ],
+                        ),
+                      ),
+                      // Top Gold Reading Progress Bar
+                      Positioned(
+                        left: 0,
+                        bottom: 0,
+                        height: 3,
+                        width: MediaQuery.of(context).size.width * _scrollProgress,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFD25E),
+                            borderRadius: BorderRadius.horizontal(right: Radius.circular(3)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Horizontal Section Jump Chips
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 6),
+                    child: SizedBox(
+                      height: 36,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        itemCount: _sections.length,
+                        itemBuilder: (ctx, i) {
+                          final sec = _sections[i];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => _scrollToSection(i),
+                              child: Container(
+                                height: 36,
+                                padding: const EdgeInsets.fromLTRB(6, 0, 14, 0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.26),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFF0B1F5B),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      sec.title,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  // Main Scrollable Legal Content Cards
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 40),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: List.generate(_sections.length, (i) {
+                              final sec = _sections[i];
+                              return Padding(
+                                key: _sectionKeys[i],
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildSectionCard(sec, i + 1),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSkeletonSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 200,
-          height: 24,
-          color: AppColors.white.withOpacity(0.1),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          height: 16,
-          color: AppColors.white.withOpacity(0.1),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          height: 16,
-          color: AppColors.white.withOpacity(0.1),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: 300,
-          height: 16,
-          color: AppColors.white.withOpacity(0.1),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRealContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSectionCard(_TermsSectionData sec, int number) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF02104C).withValues(alpha: 0.35),
+            blurRadius: 26,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
         children: [
-          // Introduction
-          _buildSection(
-            '1. Introduction',
-            'Welcome to DrycleanPlus. These Terms and Conditions govern your use of our dry cleaning and laundry services. By using our services, you agree to be bound by these terms. Please read them carefully before placing an order.',
-          ),
-          const SizedBox(height: 20),
-
-          // Services
-          _buildSection(
-            '2. Our Services',
-            'DrycleanPlus provides professional dry cleaning, laundry, and garment care services including but not limited to:\n\n'
-            '• Dry cleaning for all types of garments\n'
-            '• Laundry and ironing services\n'
-            '• Duvet and bedding cleaning\n'
-            '• Household item cleaning\n'
-            '• Collection and delivery services\n\n'
-            'We reserve the right to modify, suspend, or discontinue any service at any time without prior notice.',
-          ),
-          const SizedBox(height: 20),
-
-          // Orders and Payments
-          _buildSection(
-            '3. Orders and Payments',
-            '• All orders are subject to acceptance and availability\n'
-            '• Prices are displayed on our app and website and may be updated from time to time\n'
-            '• Payment must be made at the time of booking or upon delivery as per the selected payment method\n'
-            '• We accept major credit/debit cards and digital payment methods\n'
-            '• Prepaid packs are non-refundable but can be used for future services\n'
-            '• Prices include VAT where applicable',
-          ),
-          const SizedBox(height: 20),
-
-          // Collection and Delivery
-          _buildSection(
-            '4. Collection and Delivery',
-            '• Collection and delivery times are estimates and may vary due to traffic or weather conditions\n'
-            '• You must ensure someone is available at the specified address during the selected time slot\n'
-            '• If access is not possible, we may charge a re-delivery fee\n'
-            '• We are not responsible for delays caused by circumstances beyond our control\n'
-            '• Safe place delivery is available at your own risk',
-          ),
-          const SizedBox(height: 20),
-
-          // Garment Care
-          _buildSection(
-            '5. Garment Care and Liability',
-            '• You must inform us of any special care requirements or known issues with garments\n'
-            '• We are not liable for damage caused by normal wear and tear, pre-existing conditions, or manufacturer defects\n'
-            '• Claims for damaged items must be reported within 24 hours of delivery\n'
-            '• Our liability is limited to the replacement value of the garment, up to a maximum of 10 times the cleaning charge\n'
-            '• We reserve the right to refuse service for items that may be damaged by cleaning',
-          ),
-          const SizedBox(height: 20),
-
-          // Cancellations
-          _buildSection(
-            '6. Cancellations and Refunds',
-            '• Orders can be cancelled free of charge up to 2 hours before scheduled collection\n'
-            '• Cancellations within 2 hours may incur a cancellation fee\n'
-            '• Refunds for prepaid orders will be processed within 5-7 business days\n'
-            '• We reserve the right to cancel orders due to unforeseen circumstances\n'
-            '• In case of service issues, we may offer re-cleaning or credit towards future services',
-          ),
-          const SizedBox(height: 20),
-
-          // User Accounts
-          _buildSection(
-            '7. User Accounts',
-            '• You are responsible for maintaining the confidentiality of your account\n'
-            '• You must provide accurate and complete information when creating an account\n'
-            '• You are responsible for all activities under your account\n'
-            '• We reserve the right to suspend or terminate accounts that violate these terms\n'
-            '• Guest accounts are available with limited functionality',
-          ),
-          const SizedBox(height: 20),
-
-          // Privacy
-          _buildSection(
-            '8. Privacy and Data Protection',
-            '• Your personal data is processed in accordance with our Privacy Policy\n'
-            '• We collect and store data necessary for service delivery\n'
-            '• Location data is used for collection and delivery purposes only\n'
-            '• Payment information is securely processed and not stored on our servers\n'
-            '• You have the right to access, correct, or delete your personal data',
-          ),
-          const SizedBox(height: 20),
-
-          // Intellectual Property
-          _buildSection(
-            '9. Intellectual Property',
-            '• All content on our app and website is owned by DrycleanPlus\n'
-            '• Our logo, brand name, and designs are protected by intellectual property laws\n'
-            '• You may not use our intellectual property without written permission\n'
-            '• User-generated content, such as reviews, may be used for marketing purposes',
-          ),
-          const SizedBox(height: 20),
-
-          // Dispute Resolution
-          _buildSection(
-            '10. Dispute Resolution',
-            '• In case of disputes, please contact our customer service team first\n'
-            '• We aim to resolve all complaints within 14 days\n'
-            '• Unresolved disputes may be referred to independent arbitration\n'
-            '• These terms are governed by the laws of England and Wales\n'
-            '• Any legal proceedings shall be conducted in the courts of England and Wales',
-          ),
-          const SizedBox(height: 20),
-
-          // Changes to Terms
-          _buildSection(
-            '11. Changes to Terms',
-            '• We may update these terms from time to time\n'
-            '• Significant changes will be notified via email or app notification\n'
-            '• Continued use of our services after changes constitutes acceptance\n'
-            '• Previous versions of terms are available upon request',
-          ),
-          const SizedBox(height: 20),
-
-          // Contact
-          _buildSection(
-            '12. Contact Us',
-            'If you have any questions about these Terms and Conditions, please contact us:\n\n'
-            '• Email: info@drycleanplus.com\n'
-            '• Phone: +44 7424 866802\n'
-            '• Address: 2c Bar Gate, Newark, NG24 1ES, United Kingdom\n'
-            '• Live chat available in the app',
-          ),
-          const SizedBox(height: 30),
-
-          // Last Updated
-          Center(
-            child: Text(
-              'Last Updated: April 2026',
-              style: GoogleFonts.inter(
-                color: AppColors.white.withOpacity(0.5),
-                fontSize: 12,
+          // Background soft pastel circle
+          Positioned(
+            right: -46,
+            top: -56,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: sec.tint,
               ),
             ),
           ),
-          const SizedBox(height: 20),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Row
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [sec.colorA, sec.colorB],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: sec.colorA.withValues(alpha: 0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$number',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        sec.title,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0B1F5B),
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1.5, color: Color(0xFFE8EEFC)),
+                const SizedBox(height: 10),
+
+                // Paragraphs
+                for (final p in sec.paragraphs)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      p,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF34457D),
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+
+                // Bullet groups
+                for (final bg in sec.bulletGroups) ...[
+                  if (bg.label.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, bottom: 4),
+                      child: Text(
+                        bg.label,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0B1F5B),
+                        ),
+                      ),
+                    ),
+                  for (final item in bg.items)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(top: 6, right: 10, left: 2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [sec.colorA, sec.colorB],
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF34457D),
+                                height: 1.55,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+
+                // Footer note if any
+                if (sec.footerNote != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      sec.footerNote!,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF5B6B9A),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildSection(String title, String content) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppColors.gold,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          content,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: AppColors.white.withOpacity(0.8),
-            height: 1.6,
-          ),
-        ),
-      ],
-    );
-  }
+class _TermsSectionData {
+  final String title;
+  final Color colorA;
+  final Color colorB;
+  final Color tint;
+  final List<String> paragraphs;
+  final List<_TermsBulletGroup> bulletGroups;
+  final String? footerNote;
+
+  const _TermsSectionData({
+    required this.title,
+    required this.colorA,
+    required this.colorB,
+    required this.tint,
+    required this.paragraphs,
+    required this.bulletGroups,
+    this.footerNote,
+  });
+}
+
+class _TermsBulletGroup {
+  final String label;
+  final List<String> items;
+
+  const _TermsBulletGroup({required this.label, required this.items});
 }

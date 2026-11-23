@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../config/theme.dart';
+import 'package:flutter/services.dart';
 import '../screens/home_screen.dart';
 import '../screens/prices_screen.dart';
 import '../screens/guest_price_screen.dart';
@@ -8,6 +8,9 @@ import '../screens/more_screen.dart';
 import '../screens/service_overview_screen.dart';
 import '../utils/route_helpers.dart';
 import '../utils/guest_helper.dart';
+
+/// Global ValueNotifier for instantaneous tab switching (0: Home, 1: Prices, 2: Prepaid, 3: More)
+final ValueNotifier<int> mainTabNotifier = ValueNotifier<int>(0);
 
 /// Global reference to PersistentFooterApp state for resetting navigation.
 /// Prefer using [persistentFooterKey] (the typed GlobalKey) instead.
@@ -28,32 +31,13 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
   int _currentIndex = 0;
 
   // ── Responsive measurements ──────────────────────────────────────────────
-  /// Minimum nav bar height. Grows on tall phones.
-  static const double _minNavBarHeight = 66.0;
-
-  /// Extra breathing room above system bottom inset.
-  static const double _extraPadding = 8.0;
-
-  /// FAB diameter.
-  static const double _fabSize = 58.0;
-
-  double _navBarHeight(BuildContext context) {
-    // Scale slightly on larger screens (tablets) but cap at 80.
-    final shortestSide = MediaQuery.of(context).size.shortestSide;
-    return (shortestSide > 600 ? 76.0 : _minNavBarHeight).clamp(66.0, 80.0);
-  }
+  /// Standard bar height without safe area inset (from Home.html: 64px)
+  static const double _baseBarHeight = 64.0;
 
   double _footerHeight(BuildContext context) {
     final safeBottom = MediaQuery.of(context).padding.bottom;
-    return _navBarHeight(context) + safeBottom + _extraPadding;
+    return _baseBarHeight + safeBottom;
   }
-
-  double _fabBottomOffset(BuildContext context) {
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-    // Position FAB so its centre aligns with the nav bar's icon row.
-    return safeBottom + (_navBarHeight(context) / 2) - (_fabSize / 2);
-  }
-  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -73,6 +57,9 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
     if (_currentIndex != index) {
       setState(() => _currentIndex = index);
     }
+    if (mainTabNotifier.value != index) {
+      mainTabNotifier.value = index;
+    }
   }
 
   /// Reset navigation state to Home tab (index 0).
@@ -81,28 +68,43 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
     }
+    if (mainTabNotifier.value != 0) {
+      mainTabNotifier.value = 0;
+    }
   }
 
   void _handleRouteChanged() {
-    // We only update if the tab should actually change to prevent rebuild loops.
     final routeName = RouteNotifier().value;
     if (routeName == null || !mounted) return;
 
     int? nextIndex;
-    if (routeName == '/home') nextIndex = 0;
-    else if (routeName == '/prices' || routeName == '/guest_prices') nextIndex = 1;
-    else if (routeName == '/prepaid') nextIndex = 2;
-    else if (routeName == '/more') nextIndex = 3;
+    if (routeName == '/home') {
+      nextIndex = 0;
+    } else if (routeName == '/prices' || routeName == '/guest_prices') {
+      nextIndex = 1;
+    } else if (routeName == '/prepaid') {
+      nextIndex = 2;
+    } else if (routeName == '/more') {
+      nextIndex = 3;
+    }
 
-    if (nextIndex != null && _currentIndex != nextIndex) {
-      if (mounted) {
-        setState(() => _currentIndex = nextIndex!);
+    if (nextIndex != null) {
+      final int target = nextIndex;
+      if (_currentIndex != target) {
+        setState(() => _currentIndex = target);
+      }
+      if (mainTabNotifier.value != target) {
+        mainTabNotifier.value = target;
       }
     }
   }
 
   void _navigateToTab(int index) {
-    if (_currentIndex == index) return;
+    if (_currentIndex == index && mainTabNotifier.value == index) return;
+
+    HapticFeedback.selectionClick();
+    setState(() => _currentIndex = index);
+    mainTabNotifier.value = index;
 
     final routes = [
       '/home',
@@ -111,21 +113,16 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
       '/more',
     ];
 
-    // Note: We don't call setState here immediately because _handleRouteChanged 
-    // will catch it once the navigation occurs. This prevents circularity.
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final nav = navigatorKey.currentState;
-      if (nav == null || !nav.mounted) return;
+    final targetRoute = routes[index];
+    RouteNotifier().forceRoute(targetRoute);
 
-      final currentRoute = RouteNotifier().value;
+    final nav = navigatorKey.currentState;
+    if (nav == null || !nav.mounted) return;
 
-      if (index == 0) {
-        nav.pushNamedAndRemoveUntil('/home', (route) => false);
-      } else if (currentRoute != routes[index]) {
-        nav.pushReplacementNamed(routes[index]);
-      }
-    });
+    // If any pushed subroute is currently over the main tab shell, pop back to the shell
+    if (nav.canPop()) {
+      nav.popUntil((route) => route.isFirst);
+    }
   }
 
   void _navigateToServiceSelection() {
@@ -161,10 +158,18 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
 
     const hiddenRoutes = {
       '/onboarding',
+      '/loader',
       '/service_overview',
+      '/service_items',
+      '/select_services',
+      '/address_selection',
+      '/add_address',
       '/time_slots',
+      '/contact_info',
       '/booking_overview',
+      '/payment_options',
       '/payment',
+      '/track_order',
       '/booking_confirmation',
       '/guest_prices',
       '/guest_service_overview',
@@ -178,150 +183,234 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
     return ValueListenableBuilder<String?>(
       valueListenable: RouteNotifier(),
       builder: (context, routeName, _) {
-        final showFooter = _shouldShowFooter(routeName);
+        final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+        final isLoggingOut = RouteNotifier().isLoggingOut;
+        final showFooter = _shouldShowFooter(routeName) && !keyboardOpen && !isLoggingOut;
         final footerH = _footerHeight(context);
-        final fabBottom = _fabBottomOffset(context);
+        final safeBottom = MediaQuery.of(context).padding.bottom;
 
-        return Stack(
-          children: [
-            // ── Main content ──────────────────────────────────────────────
-            Positioned.fill(
-              bottom: showFooter ? footerH : 0,
-              child: widget.child,
-            ),
-
-            // ── Footer bar ────────────────────────────────────────────────
-            if (showFooter)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _FixedFooter(
-                  height: footerH,
-                  safeBottom: MediaQuery.of(context).padding.bottom,
-                  currentIndex: _currentIndex,
-                  onTabSelected: _navigateToTab,
-                ),
+        return ColoredBox(
+          color: const Color(0xFF0C2B7A), // App's background color: prevents any black window background from bleeding through
+          child: Stack(
+            children: [
+              // ── Main content ──────────────────────────────────────────────
+              // Allow child to extend slightly behind the footer (26px) so that the
+              // footer's top-left and top-right 22px curved corners are completely backed
+              // by the page's vibrant background instead of unpainted transparent/black gaps!
+              Positioned.fill(
+                bottom: showFooter ? (footerH - 26).clamp(0.0, double.infinity) : 0,
+                child: widget.child,
               ),
 
-            // ── FAB (Book now) ────────────────────────────────────────────
-            if (showFooter)
-              Positioned(
-                bottom: fabBottom,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: _BookNowFab(
-                    size: _fabSize,
-                    onTap: _navigateToServiceSelection,
+              // ── Footer bar matching Home.html exactly ─────────────────────
+              if (showFooter)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _HomeHtmlFooter(
+                    baseHeight: _baseBarHeight,
+                    safeBottom: safeBottom,
+                    currentIndex: _currentIndex,
+                    onTabSelected: _navigateToTab,
+                    onBookNowTap: _navigateToServiceSelection,
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
 }
 
-// ── Private sub-widgets ───────────────────────────────────────────────────────
-
-class _FixedFooter extends StatelessWidget {
-  final double height;
+// ── Footer Bar Matching Home.html Specification ──────────────────────────────
+class _HomeHtmlFooter extends StatelessWidget {
+  final double baseHeight;
   final double safeBottom;
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
+  final VoidCallback onBookNowTap;
 
-  const _FixedFooter({
-    required this.height,
+  const _HomeHtmlFooter({
+    required this.baseHeight,
     required this.safeBottom,
     required this.currentIndex,
     required this.onTabSelected,
+    required this.onBookNowTap,
   });
-
-  static const _items = [
-    (Icons.home_filled, 'Home'),
-    (Icons.local_offer_rounded, 'Prices'),
-    (Icons.account_balance_wallet_rounded, 'Prepaid'),
-    (Icons.more_horiz_rounded, 'More'),
-  ];
 
   @override
   Widget build(BuildContext context) {
+    final shortestSide = MediaQuery.of(context).size.shortestSide;
+    final isTablet = shortestSide > 600;
+
     return Material(
       color: Colors.transparent,
-      child: Container(
-        height: height,
-        decoration: const BoxDecoration(
-          color: AppColors.primaryBlueDark,
-          border: Border(top: BorderSide(color: AppColors.gold, width: 1)),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 15,
-              offset: Offset(0, -4),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: EdgeInsets.only(bottom: safeBottom),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 550),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Left two items
-                  _NavItem(
-                    icon: _items[0].$1,
-                    label: _items[0].$2,
-                    index: 0,
-                    isSelected: currentIndex == 0,
-                    onTap: onTabSelected,
+      child: SizedBox(
+        width: double.infinity,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            // ── Full-Width Bar Background Container (No black gaps on left/right!) ──
+            Container(
+              width: double.infinity,
+              height: baseHeight + safeBottom,
+              decoration: BoxDecoration(
+                color: const Color(0xF20A2468), // rgba(10,36,104,.95)
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    width: 1.0,
                   ),
-                  _NavItem(
-                    icon: _items[1].$1,
-                    label: _items[1].$2,
-                    index: 1,
-                    isSelected: currentIndex == 1,
-                    onTap: onTabSelected,
-                  ),
-                  // Centre gap for the FAB
-                  const SizedBox(width: 64),
-                  // Right two items
-                  _NavItem(
-                    icon: _items[2].$1,
-                    label: _items[2].$2,
-                    index: 2,
-                    isSelected: currentIndex == 2,
-                    onTap: onTabSelected,
-                  ),
-                  _NavItem(
-                    icon: _items[3].$1,
-                    label: _items[3].$2,
-                    index: 3,
-                    isSelected: currentIndex == 3,
-                    onTap: onTabSelected,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x5902104C), // rgba(2,16,76,.35)
+                    blurRadius: 28,
+                    offset: Offset(0, -8),
                   ),
                 ],
               ),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: safeBottom),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: SizedBox(
+                      height: baseHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Tab 0: Home
+                          Expanded(
+                            child: _HomeHtmlNavItem(
+                              icon: Icons.home_rounded,
+                              label: 'Home',
+                              index: 0,
+                              isSelected: currentIndex == 0,
+                              onTap: onTabSelected,
+                            ),
+                          ),
+                          // Tab 1: Prices
+                          Expanded(
+                            child: _HomeHtmlNavItem(
+                              icon: Icons.sell_rounded,
+                              label: 'Prices',
+                              index: 1,
+                              isSelected: currentIndex == 1,
+                              onTap: onTabSelected,
+                            ),
+                          ),
+                          // Center Slot: Book now (takes ~80px width)
+                          SizedBox(
+                            width: isTablet ? 90 : 80,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: onBookNowTap,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 7),
+                                    child: Text(
+                                      'Book now',
+                                      style: TextStyle(
+                                        fontSize: isTablet ? 12.0 : 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                        letterSpacing: 0.1,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Tab 2: Prepaid
+                          Expanded(
+                            child: _HomeHtmlNavItem(
+                              icon: Icons.account_balance_wallet_rounded,
+                              label: 'Prepaid',
+                              index: 2,
+                              isSelected: currentIndex == 2,
+                              onTap: onTabSelected,
+                            ),
+                          ),
+                          // Tab 3: More
+                          Expanded(
+                            child: _HomeHtmlNavItem(
+                              icon: Icons.grid_view_rounded,
+                              label: 'More',
+                              index: 3,
+                              isSelected: currentIndex == 3,
+                              onTap: onTabSelected,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+
+            // ── Floating Book Now Pill Button (Centered) ──
+            Positioned(
+              bottom: safeBottom + baseHeight - 34, // Exactly 22px sticking above top of bar
+              child: GestureDetector(
+                onTap: onBookNowTap,
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFFFE08A), Color(0xFFF5B82E)],
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF0A2468),
+                      width: 5.0,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66F5B82E), // rgba(245,184,46,.4)
+                        blurRadius: 22,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: Color(0xFF0B1F5B),
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
+// ── Single Nav Item matching Home.html .t ─────────────────────────────────────
+class _HomeHtmlNavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final int index;
   final bool isSelected;
   final ValueChanged<int> onTap;
 
-  const _NavItem({
+  const _HomeHtmlNavItem({
     required this.icon,
     required this.label,
     required this.index,
@@ -331,107 +420,126 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.gold : AppColors.white.withOpacity(0.5);
+    final color = isSelected
+        ? Colors.white
+        : Colors.white.withValues(alpha: 0.62);
 
-    // Responsive icon / font size
-    final shortestSide = MediaQuery.of(context).size.shortestSide;
-    final iconSize = shortestSide > 600 ? 30.0 : 26.0;
-    final fontSize = shortestSide > 600 ? 13.0 : 12.0;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () => onTap(index),
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          height: 56,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: iconSize),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: fontSize,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onTap(index),
+      child: Container(
+        width: double.infinity,
+        color: Colors.transparent,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // ── Top Active Indicator Bar (.t::before in Home.html) ──
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              width: isSelected ? 28 : 0,
+              height: 3,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFD25E),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(3)),
               ),
-            ],
-          ),
+            ),
+
+            // ── Centered Icon & Label ──
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: color,
+                    size: 22,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11.5,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                      letterSpacing: 0.1,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _BookNowFab extends StatelessWidget {
-  final double size;
-  final VoidCallback onTap;
-
-  const _BookNowFab({required this.size, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final fontSize = MediaQuery.of(context).size.shortestSide > 600 ? 12.0 : 11.0;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: AppColors.primaryBlue,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.gold, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.add, color: Colors.white, size: 32),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Book now',
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w500,
-            color: AppColors.white.withOpacity(0.5),
-            decoration: TextDecoration.none,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ── MainTabScreen ─────────────────────────────────────────────────────────────
 
-/// A wrapper widget for main tab screens that works with the persistent footer.
-class MainTabScreen extends StatelessWidget {
-  final int tabIndex;
+/// High-performance IndexedStack tab shell for instant 0ms tab transitions.
+class MainTabScreen extends StatefulWidget {
+  final int initialTabIndex;
 
-  const MainTabScreen({super.key, required this.tabIndex});
+  const MainTabScreen({super.key, int? tabIndex, int? initialTabIndex})
+      : initialTabIndex = initialTabIndex ?? tabIndex ?? 0;
+
+  @override
+  State<MainTabScreen> createState() => _MainTabScreenState();
+}
+
+class _MainTabScreenState extends State<MainTabScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTabIndex != mainTabNotifier.value) {
+      mainTabNotifier.value = widget.initialTabIndex;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MainTabScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTabIndex != oldWidget.initialTabIndex &&
+        widget.initialTabIndex != mainTabNotifier.value) {
+      mainTabNotifier.value = widget.initialTabIndex;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pages = <Widget>[
-      HomeScreen(showBottomNav: false),
-      GuestHelper.isGuest()
-          ? const GuestPriceScreen()
-          : PricesScreen(showBottomNav: false),
-      PrepaidPacksScreen(showBottomNav: false),
-      MoreScreen(showBottomNav: false),
-    ];
-
-    return pages[tabIndex];
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (mainTabNotifier.value != 0) {
+          persistentFooterKey.currentState?.setTab(0);
+          mainTabNotifier.value = 0;
+          RouteNotifier().forceRoute('/home');
+        } else {
+          SystemNavigator.pop();
+        }
+      },
+      child: ValueListenableBuilder<int>(
+        valueListenable: mainTabNotifier,
+        builder: (context, activeIndex, _) {
+          return IndexedStack(
+            index: activeIndex.clamp(0, 3),
+            children: [
+              const HomeScreen(showBottomNav: false),
+              GuestHelper.isGuest()
+                  ? const GuestPriceScreen()
+                  : const PricesScreen(showBottomNav: false),
+              const PrepaidPacksScreen(showBottomNav: false),
+              const MoreScreen(showBottomNav: false),
+            ],
+          );
+        },
+      ),
+    );
   }
 }

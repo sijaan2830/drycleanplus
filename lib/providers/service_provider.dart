@@ -158,6 +158,8 @@ class ServiceProvider extends ChangeNotifier {
         'items': service.items ?? [],
         'tags': _generateAutomaticTags(service), // Auto-generate tags
         'imageUrl': service.imageUrl, 
+        'iconKey': service.iconKey,
+        'cardColors': service.cardColors,
         'id': service.id, 
       };
       
@@ -336,11 +338,11 @@ class ServiceProvider extends ChangeNotifier {
   Color _getServiceColor(String serviceName) {
     switch (serviceName) {
       case 'Dry Clean':
-        return const Color(0xFF4FD1C5);
+        return const Color(0xFF7DDCFF);
       case 'Duvets & Bedding':
         return const Color(0xFFDBEAFE);
       case 'Household Items':
-        return const Color(0xFFF9A8D4);
+        return const Color(0xFF9AD0FF);
       case 'Laundry & Ironing':
         return const Color(0xFF1DA1F2);
       default:

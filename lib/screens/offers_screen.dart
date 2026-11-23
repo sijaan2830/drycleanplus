@@ -2,65 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
-import '../config/theme.dart';
-import '../widgets/offer_card.dart';
 import 'package:provider/provider.dart';
+import '../config/theme.dart';
 import '../providers/booking_provider.dart';
+import '../widgets/app_ui.dart';
+import '../widgets/offer_card.dart';
 
 class OffersScreen extends StatelessWidget {
   const OffersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBlue,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBlue,
-        elevation: 0,
-        centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: AppColors.white),
-        title: Text(
-          'Offers & Promotions',
-          style: GoogleFonts.inter(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-      ),
+    return AppScaffold(
+      title: 'Offers & Promotions',
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('offers')
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('offers').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingState();
+            return const _OffersSkeleton();
           }
-
           if (snapshot.hasError) {
-            print('OffersScreen error: ${snapshot.error}');
-            return _buildErrorState();
+            debugPrint('OffersScreen error: ${snapshot.error}');
+            return const _Message(
+              icon: Icons.wifi_off_rounded,
+              title: 'Unable to load offers',
+              text: 'Please check your connection.',
+            );
           }
 
           final docs = snapshot.data?.docs ?? [];
 
-          // Filter out expired and sort client-side
           final now = DateTime.now();
           final offers = docs
               .map((doc) {
-                final data = Map<String, dynamic>.from(
-                    doc.data() as Map<String, dynamic>);
+                final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
                 data['id'] = doc.id;
-                // Convert Timestamp → DateTime
                 if (data['expiryDate'] is Timestamp) {
-                  data['expiryDate'] =
-                      (data['expiryDate'] as Timestamp).toDate();
+                  data['expiryDate'] = (data['expiryDate'] as Timestamp).toDate();
                 }
                 return data;
               })
-              // Filter only active ones here since we removed it from the query
               .where((data) => data['isActive'] == true)
               .toList()
             ..sort((a, b) {
@@ -74,94 +55,75 @@ class OffersScreen extends StatelessWidget {
               return aExp.compareTo(bExp);
             });
 
-          if (offers.isEmpty) return _buildEmptyState();
+          final active = offers.where((o) {
+            final exp = o['expiryDate'] as DateTime?;
+            return exp == null || exp.isAfter(now);
+          }).toList();
 
-          // Separate active vs expired
-          final active =
-              offers.where((o) {
-                final exp = o['expiryDate'] as DateTime?;
-                return exp == null || exp.isAfter(now);
-              }).toList();
-          final expired =
-              offers.where((o) {
-                final exp = o['expiryDate'] as DateTime?;
-                return exp != null && exp.isBefore(now);
-              }).toList();
+          final expired = offers.where((o) {
+            final exp = o['expiryDate'] as DateTime?;
+            return exp != null && exp.isBefore(now);
+          }).toList();
 
           return Consumer<BookingProvider>(
             builder: (context, bookingProvider, _) {
-              final usedCoupons = bookingProvider.bookingData.discountCode != null 
-                  ? [bookingProvider.bookingData.discountCode!, ...bookingProvider.orders.map((o) => o.bookingData.discountCode).whereType<String>()]
-                  : bookingProvider.orders.map((o) => o.bookingData.discountCode).whereType<String>().toList();
-              
-              // Note: We should actually use the _userUsedCoupons from BookingProvider which is synced with Firestore.
-              // Let's assume BookingProvider has a getter for it. I added it to state in previous step.
+              bool isUsed(String code) =>
+                  code.isNotEmpty && bookingProvider.orders.any((o) => o.bookingData.discountCode == code);
+
+              Widget card(Map<String, dynamic> offer, {bool allowTap = true}) {
+                final code = offer['discountCode']?.toString() ?? '';
+                final used = isUsed(code);
+                return OfferCard(
+                  offer: offer,
+                  isUsed: used,
+                  onTap: allowTap && code.isNotEmpty && !used ? () => _showPromoDialog(context, code) : null,
+                );
+              }
 
               return CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
-                  // ── Header stats banner ─────────────────────────────────
+                  // Active offers section header
                   SliverToBoxAdapter(
-                    child: _buildStatsBanner(active.length),
+                    child: _sectionLabel('Active offers', active.length, isWhiteBadge: active.isNotEmpty),
                   ),
 
-                  // ── Active offers ───────────────────────────────────────
-                  if (active.isNotEmpty) ...[
+                  // If no active offers, show exact .empty card from HTML
+                  if (active.isEmpty)
                     SliverToBoxAdapter(
-                      child: _buildSectionHeader('Active Offers', active.length),
-                    ),
+                      child: _emptyBanner(),
+                    )
+                  else
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final offer = active[index];
-                            final promoCode = offer['discountCode']?.toString() ?? '';
-                            // Access the _userUsedCoupons via an internal check or public getter if available.
-                            // For now, I'll use a hacky way since I didn't add a public getter yet, or I'll just add the getter now.
-                            final isUsed = promoCode.isNotEmpty && bookingProvider.orders.any((o) => o.bookingData.discountCode == promoCode);
-
-                            return OfferCard(
-                              offer: offer,
-                              isUsed: isUsed,
-                              onTap: promoCode.isNotEmpty && !isUsed
-                                  ? () => _showPromoDialog(context, promoCode)
-                                  : null,
-                            );
-                          },
+                          (context, i) => _Entrance(index: i, child: card(active[i])),
                           childCount: active.length,
                         ),
                       ),
                     ),
-                  ],
 
-                  // ── Expired offers (collapsed section) ──────────────────
+                  // Expired offers section
                   if (expired.isNotEmpty) ...[
                     SliverToBoxAdapter(
-                      child: _buildSectionHeader(
-                          'Expired Offers', expired.length,
-                          muted: true),
+                      child: _sectionLabel('Expired offers', expired.length, isWhiteBadge: true),
                     ),
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final offer = expired[index];
-                            final promoCode = offer['discountCode']?.toString() ?? '';
-                            final isUsed = promoCode.isNotEmpty && bookingProvider.orders.any((o) => o.bookingData.discountCode == promoCode);
-                            return OfferCard(
-                              offer: offer,
-                              isUsed: isUsed,
-                            );
-                          },
+                          (context, i) => _Entrance(
+                            index: i + active.length,
+                            child: card(expired[i], allowTap: false),
+                          ),
                           childCount: expired.length,
                         ),
                       ),
                     ),
                   ],
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 36)),
                 ],
               );
             },
@@ -171,48 +133,98 @@ class OffersScreen extends StatelessWidget {
     );
   }
 
-  // ── Stats banner ───────────────────────────────────────────────────────────
+  /// Section label matching HTML .lb:
+  /// font-size: 12.5px, font-weight: 800, letter-spacing: .14em, uppercase, color: #DCE8FF
+  /// .ct: chip badge; .ct.w: white badge with #1553D6 text when highlighted
+  Widget _sectionLabel(String title, int count, {required bool isWhiteBadge}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+      child: Row(
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.7,
+              color: const Color(0xFFDCE8FF),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(
+              color: isWhiteBadge ? Colors.white : Colors.white.withOpacity(0.20),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: isWhiteBadge ? const Color(0xFF1553D6) : Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildStatsBanner(int activeCount) {
+  /// Empty banner matching HTML .empty:
+  /// border: 1px solid rgba(255,255,255,.22)
+  /// background: linear-gradient(160deg, rgba(8,26,92,.55), rgba(6,20,72,.72))
+  /// .ei: 56x56 white circle, box-shadow: 0 0 0 7px rgba(255,255,255,.14)
+  Widget _emptyBanner() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.primaryBlueDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gold.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.22), width: 1),
+        gradient: const LinearGradient(
+          begin: Alignment(-0.6, -1.0),
+          end: Alignment(0.6, 1.0),
+          colors: [Color(0x8C081A5C), Color(0xB8061448)],
+        ),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: AppColors.gold.withOpacity(0.1),
               shape: BoxShape.circle,
+              color: Colors.white,
+              border: Border.all(color: Colors.white.withOpacity(0.14), width: 7),
             ),
-            child: const Icon(Icons.workspace_premium_rounded,
-                color: AppColors.gold, size: 22),
+            child: const Center(
+              child: Icon(Icons.local_offer_rounded, color: Color(0xFF1553D6), size: 28),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  activeCount > 0
-                      ? '$activeCount exclusive offer${activeCount > 1 ? 's' : ''} available'
-                      : 'Check back soon for offers',
+                  'Check back soon for offers',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.white,
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1.25,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
                   'Tap a promo code to copy it instantly',
                   style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.white.withOpacity(0.5),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFFE6EEFF),
+                    height: 1.35,
                   ),
                 ),
               ],
@@ -223,136 +235,69 @@ class OffersScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title, int count,
-      {bool muted = false}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: muted
-                  ? AppColors.white.withOpacity(0.35)
-                  : AppColors.white.withOpacity(0.7),
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: muted
-                  ? AppColors.white.withOpacity(0.06)
-                  : AppColors.gold.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '$count',
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: muted
-                    ? AppColors.white.withOpacity(0.3)
-                    : AppColors.gold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── States ─────────────────────────────────────────────────────────────────
-
-  Widget _buildLoadingState() {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-      itemCount: 3,
-      itemBuilder: (_, __) => _SkeletonCard(),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: AppColors.gold.withOpacity(0.07),
-              shape: BoxShape.circle,
-              border:
-                  Border.all(color: AppColors.gold.withOpacity(0.15), width: 1),
-            ),
-            child: Icon(Icons.local_offer_outlined,
-                size: 52, color: AppColors.gold.withOpacity(0.4)),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No active offers yet',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.white.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Check back soon for exclusive promotions!',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.white.withOpacity(0.35),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.wifi_off_rounded,
-              size: 48, color: AppColors.white.withOpacity(0.3)),
-          const SizedBox(height: 16),
-          Text(
-            'Unable to load offers',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.white.withOpacity(0.5),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Please check your connection.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppColors.white.withOpacity(0.3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Promo dialog ───────────────────────────────────────────────────────────
-
   void _showPromoDialog(BuildContext context, String code) {
-    showDialog(
-      context: context,
-      builder: (context) => _PromoDialog(code: code),
+    showDialog(context: context, builder: (_) => _PromoDialog(code: code));
+  }
+}
+
+class _Entrance extends StatelessWidget {
+  final int index;
+  final Widget child;
+  const _Entrance({required this.index, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 380 + index.clamp(0, 6) * 90),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, c) => Opacity(
+        opacity: v.clamp(0.0, 1.0),
+        child: Transform.translate(offset: Offset(0, 20 * (1 - v)), child: c),
+      ),
+      child: child,
     );
   }
 }
 
-// ── Promo dialog widget ────────────────────────────────────────────────────────
+class _Message extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String text;
+  const _Message({required this.icon, required this.title, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.14),
+                border: Border.all(color: Colors.white.withOpacity(0.22)),
+              ),
+              child: Icon(icon, size: 44, color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+            Text(title, style: GoogleFonts.inter(fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
+            const SizedBox(height: 6),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 13.5, height: 1.4, color: Colors.white.withOpacity(0.8)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _PromoDialog extends StatefulWidget {
   final String code;
@@ -365,9 +310,10 @@ class _PromoDialog extends StatefulWidget {
 class _PromoDialogState extends State<_PromoDialog> {
   bool _copied = false;
 
-  void _copy() async {
+  Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: widget.code));
     HapticFeedback.mediumImpact();
+    if (!mounted) return;
     setState(() => _copied = true);
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) setState(() => _copied = false);
@@ -376,59 +322,45 @@ class _PromoDialogState extends State<_PromoDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: AppColors.primaryBlueDark,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: AppColors.gold.withOpacity(0.3), width: 1.5),
-      ),
-      title: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.gold.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.confirmation_num_rounded,
-                color: AppColors.gold, size: 28),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Your Promo Code',
-            style: GoogleFonts.inter(
-                color: AppColors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFF071A45),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      contentPadding: const EdgeInsets.fromLTRB(24, 26, 24, 8),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFFFFC73A),
+            ),
+            child: const Icon(Icons.local_offer_rounded, color: Color(0xFF0B1A3D), size: 30),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Promo Code',
+            style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
           Text(
             'Use this code at checkout\nto claim your discount:',
-            style: GoogleFonts.inter(
-                color: AppColors.white.withOpacity(0.6), fontSize: 13),
             textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 13, height: 1.4, color: Colors.white.withOpacity(0.8)),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           GestureDetector(
             onTap: _copy,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 250),
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
               decoration: BoxDecoration(
-                color: _copied
-                    ? AppColors.gold.withOpacity(0.2)
-                    : AppColors.gold.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(14),
+                color: _copied ? const Color(0x33009668) : Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: _copied
-                      ? AppColors.gold
-                      : AppColors.gold.withOpacity(0.3),
-                  width: 1.5,
+                  color: _copied ? const Color(0xFF8CF0BC) : Colors.white.withOpacity(0.4),
+                  width: 1.6,
                 ),
               ),
               child: Column(
@@ -436,43 +368,42 @@ class _PromoDialogState extends State<_PromoDialog> {
                   Text(
                     widget.code,
                     style: GoogleFonts.inter(
-                      color: AppColors.gold,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
                       letterSpacing: 3,
+                      color: Colors.white,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: _copied
                         ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             key: const ValueKey('copied'),
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.check_circle_rounded,
-                                  size: 14, color: AppColors.gold),
+                              const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF8CF0BC)),
                               const SizedBox(width: 6),
-                              Text('Copied to clipboard!',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: AppColors.gold,
-                                      fontWeight: FontWeight.w600)),
+                              Text(
+                                'Copied to clipboard!',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF8CF0BC),
+                                ),
+                              ),
                             ],
                           )
                         : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             key: const ValueKey('tap'),
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.copy_rounded,
-                                  size: 13,
-                                  color: AppColors.gold.withOpacity(0.5)),
+                              Icon(Icons.copy_rounded, size: 15, color: Colors.white.withOpacity(0.8)),
                               const SizedBox(width: 6),
-                              Text('Tap to copy',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: AppColors.gold.withOpacity(0.5))),
+                              Text(
+                                'Tap to copy',
+                                style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white.withOpacity(0.8)),
+                              ),
                             ],
                           ),
                   ),
@@ -483,111 +414,56 @@ class _PromoDialogState extends State<_PromoDialog> {
         ],
       ),
       actions: [
-        SizedBox(
-          width: double.infinity,
-          child: TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text('Close',
-                style: GoogleFonts.inter(
-                    color: AppColors.white.withOpacity(0.5),
-                    fontWeight: FontWeight.w600)),
-          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: Colors.white)),
         ),
       ],
     );
   }
 }
 
-// ── Skeleton loading card ──────────────────────────────────────────────────────
+class _OffersSkeleton extends StatefulWidget {
+  const _OffersSkeleton();
 
-class _SkeletonCard extends StatefulWidget {
   @override
-  State<_SkeletonCard> createState() => _SkeletonCardState();
+  State<_OffersSkeleton> createState() => _OffersSkeletonState();
 }
 
-class _SkeletonCardState extends State<_SkeletonCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.3, end: 0.7).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
+class _OffersSkeletonState extends State<_OffersSkeleton> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) => Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        height: 180,
-        decoration: BoxDecoration(
-          color: AppColors.primaryBlueDark.withOpacity(_anim.value + 0.3),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.gold.withOpacity(0.1)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
-                      shape: BoxShape.circle)),
-              const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                    width: 60,
-                    height: 10,
-                    decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(4))),
-                const SizedBox(height: 8),
-                Container(
-                    width: 160,
-                    height: 16,
-                    decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(4))),
-              ]),
-            ]),
-            const SizedBox(height: 16),
-            Container(
-                width: double.infinity,
-                height: 12,
-                decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(4))),
-            const SizedBox(height: 8),
-            Container(
-                width: 200,
-                height: 12,
-                decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(4))),
-          ],
-        ),
-      ),
+      animation: _c,
+      builder: (context, _) {
+        final o = 0.08 + 0.1 * _c.value;
+        return ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: List.generate(
+            3,
+            (_) => Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(o),
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

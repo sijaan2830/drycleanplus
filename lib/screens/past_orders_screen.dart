@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../config/theme.dart';
-import '../widgets/skeleton_loading.dart';
+import '../models/booking_models.dart' as models;
+import '../utils/order_status.dart';
+import '../widgets/order_card_widget.dart';
+import 'track_order_screen.dart';
 
 class PastOrdersScreen extends StatefulWidget {
   const PastOrdersScreen({super.key});
@@ -18,376 +22,280 @@ class _PastOrdersScreenState extends State<PastOrdersScreen> {
   @override
   void initState() {
     super.initState();
-    // Show skeleton loader for 1.2 seconds to match other screens
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) setState(() => _isLoading = false);
     });
+  }
+
+  void _openTrack(models.Order order) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TrackOrderScreen(order: order),
+        settings: const RouteSettings(name: '/track_order'),
+      ),
+    );
+  }
+
+  models.Order _parseOrder(Map<String, dynamic> data, String id) {
+    try {
+      final copy = Map<String, dynamic>.from(data);
+      copy['id'] = copy['id'] ?? id;
+      return models.Order.fromJson(copy);
+    } catch (_) {
+      final total = (data['transactionAmount'] ?? data['totalAmount'] ?? data['totalPrice'] ?? 0.0);
+      final totalVal = total is num ? total.toDouble() : 0.0;
+      final createdAt = data['createdAt'];
+      return models.Order(
+        id: id,
+        orderId: (data['orderId'] ?? data['id'] ?? id).toString(),
+        bookingData: models.BookingData(
+          totalPrice: totalVal,
+        ),
+        transactionAmount: totalVal,
+        type: (data['type'] ?? 'regular').toString(),
+        status: (data['status'] ?? 'delivered').toString(),
+        createdAt: createdAt is Timestamp ? createdAt.toDate() : DateTime.now(),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
-      backgroundColor: AppColors.primaryBlue,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBlue,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: AppColors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        centerTitle: true,
-        title: Text(
-          'Past Orders',
-          style: GoogleFonts.inter(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF1245B5),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.bgGradient,
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
+                // Soft background ambient circles
+                Positioned(
+                  right: -150,
+                  top: -140,
+                  child: Container(
+                    width: 360,
+                    height: 360,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.07),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: -230,
+                  top: 720,
+                  child: Container(
+                    width: 420,
+                    height: 420,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.05),
+                    ),
+                  ),
+                ),
+
+                Column(
+                  children: [
+                    _buildHeader(),
+                    Expanded(
+                      child: _isLoading
+                          ? const _PastSkeleton()
+                          : user == null
+                              ? _message(
+                                  icon: Icons.lock_outline_rounded,
+                                  title: 'Sign in required',
+                                  text: 'Please sign in to view your past orders.',
+                                )
+                              : StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('orders')
+                                      .where('userId', isEqualTo: user.uid)
+                                      .snapshots(),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                      return const _PastSkeleton();
+                                    }
+                                    if (snapshot.hasError) {
+                                      return _message(
+                                        icon: Icons.error_outline_rounded,
+                                        title: 'Could not load orders',
+                                        text: 'Please check your connection and try again.',
+                                      );
+                                    }
+
+                                    final docs = snapshot.data?.docs ?? [];
+                                    final sorted = docs.toList()
+                                      ..sort((a, b) {
+                                        final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                                        final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+                                        if (aTime == null) return 1;
+                                        if (bTime == null) return -1;
+                                        return bTime.compareTo(aTime);
+                                      });
+
+                                    final past = sorted.where((doc) {
+                                      final data = doc.data() as Map<String, dynamic>;
+                                      return isOrderDelivered((data['status'] ?? '').toString());
+                                    }).toList();
+
+                                    if (past.isEmpty) {
+                                      return _message(
+                                        icon: Icons.history_rounded,
+                                        title: 'No past orders yet',
+                                        text: 'Your delivered orders will appear here.',
+                                      );
+                                    }
+
+                                    return ListView.builder(
+                                      physics: const AlwaysScrollableScrollPhysics(
+                                        parent: BouncingScrollPhysics(),
+                                      ),
+                                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                                      itemCount: past.length,
+                                      itemBuilder: (context, i) {
+                                        final data = past[i].data() as Map<String, dynamic>;
+                                        final order = _parseOrder(data, past[i].id);
+                                        return Center(
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 480),
+                                            child: OrderCardWidget(
+                                              order: order,
+                                              onTrack: () => _openTrack(order),
+                                              onReorder: () => Navigator.of(context).pushNamed('/home'),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      body: _isLoading 
-          ? ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: 5,
-              itemBuilder: (context, index) => _buildSkeletonCard(),
-            )
-          : user == null
-              ? _buildLoginPrompt(context)
-              : StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('orders')
-                  .where('userId', isEqualTo: user.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: 5,
-                    itemBuilder: (context, index) => _buildSkeletonCard(),
-                  );
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: Row(
+        children: [
+          Material(
+            color: Colors.white.withOpacity(0.18),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  Navigator.of(context).pushReplacementNamed('/more');
                 }
-
-                if (snapshot.hasError) {
-                  return _buildErrorState();
-                }
-
-                final docs = snapshot.data?.docs ?? [];
-                
-                // Sort client-side to avoid index error
-                final sortedDocs = docs.toList()..sort((a, b) {
-                  final aTime = (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                  final bTime = (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-                  if (aTime == null) return 1;
-                  if (bTime == null) return -1;
-                  return bTime.compareTo(aTime); // Descending
-                });
-
-                // Filter: status is 'delivered' or 'completed'
-                final pastOrders = sortedDocs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  
-                  // Check status
-                  final status = (data['status'] ?? '').toString().toLowerCase();
-                  return status == 'delivered' || status == 'completed';
-                }).toList() ?? [];
-
-                if (pastOrders.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: pastOrders.length,
-                  itemBuilder: (context, index) {
-                    final data = pastOrders[index].data() as Map<String, dynamic>;
-                    return _buildOrderCard(data);
-                  },
-                );
               },
-            ),
-    );
-  }
-
-  Widget _buildOrderCard(Map<String, dynamic> data) {
-    final createdAt = data['createdAt'];
-    DateTime? orderDate;
-    if (createdAt is Timestamp) {
-      orderDate = createdAt.toDate();
-    }
-
-    // Get items from multiple possible fields
-    final items = (data['items'] as List<dynamic>?) ??
-        (data['selectedItems'] as List<dynamic>?) ?? [];
-    
-    final totalPrice = data['transactionAmount'] ?? 
-                      data['totalAmount'] ?? 
-                      data['totalPrice'] ?? 
-                      (data['bookingData'] != null ? 
-                        (data['bookingData']['transactionAmount'] ?? data['bookingData']['calculatedTotalPrice']) : null);
-    final serviceType = data['serviceType'] ?? data['service'] ??
-        data['selectedService'] ?? 'Dry Clean Service';
-    final orderId = data['orderId'] ?? data['id'] ?? '—';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primaryBlueDark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gold, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  serviceType.toString(),
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: AppColors.white,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: Container(
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF10B981), width: 1),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.22), width: 1.5),
                 ),
-                child: Text(
-                  'Delivered',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF10B981),
-                  ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 18,
                 ),
               ),
-            ],
+            ),
           ),
+          Expanded(
+            child: Text(
+              'Past orders',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 44),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 8),
-          const Divider(color: Colors.white12, height: 1),
-          const SizedBox(height: 8),
-
-          // Order ID
-          if (orderId != '—') ...[
-            Row(
-              children: [
-                const Icon(Icons.tag, size: 14, color: AppColors.gold),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Order: $orderId',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: AppColors.white.withOpacity(0.7),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+  Widget _message({required IconData icon, required String title, required String text}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.14),
+                border: Border.all(color: Colors.white.withOpacity(0.22)),
+              ),
+              child: Icon(icon, size: 48, color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 6),
-          ],
-
-          // Date
-          if (orderDate != null) ...[
-            Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 14, color: AppColors.gold),
-                const SizedBox(width: 6),
-                Text(
-                  '${orderDate.day}/${orderDate.month}/${orderDate.year}  '
-                  '${orderDate.hour.toString().padLeft(2, '0')}:'
-                  '${orderDate.minute.toString().padLeft(2, '0')}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.white.withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-          ],
-
-          // Items list
-          if (items.isNotEmpty) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.dry_cleaning, size: 14, color: AppColors.gold),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    items.map((i) {
-                      if (i is Map) {
-                        return i['itemType'] ?? i['name'] ?? 'Item';
-                      }
-                      return i.toString();
-                    }).join(', '),
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: AppColors.white.withOpacity(0.8),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-
-          // Total Price
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                'Total: ',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AppColors.white.withOpacity(0.7),
-                ),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.white.withOpacity(0.8),
               ),
-              Text(
-                totalPrice != null
-                    ? (totalPrice.toString().startsWith('£')
-                        ? '£${double.tryParse(totalPrice.toString().replaceAll('£', ''))?.toStringAsFixed(2) ?? totalPrice}'
-                        : '£${double.tryParse(totalPrice.toString())?.toStringAsFixed(2) ?? totalPrice}')
-                    : '—',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.gold,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.history_rounded,
-            size: 80,
-            color: AppColors.white.withOpacity(0.2),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No past orders yet',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.white.withOpacity(0.5),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Delivered orders older than 24 hours\nwill appear here automatically.',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: AppColors.white.withOpacity(0.3),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 60, color: AppColors.gold),
-          const SizedBox(height: 16),
-          Text(
-            'Could not load orders.\nPlease try again.',
-            style: GoogleFonts.inter(fontSize: 16, color: AppColors.white),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+class _PastSkeleton extends StatelessWidget {
+  const _PastSkeleton();
 
-  Widget _buildLoginPrompt(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.lock_outline, size: 60, color: AppColors.gold),
-          const SizedBox(height: 16),
-          Text(
-            'Please sign in to view your past orders.',
-            style: GoogleFonts.inter(fontSize: 16, color: AppColors.white),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSkeletonCard() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              SkeletonLoading(width: 100, height: 16, borderRadius: 4),
-              SkeletonLoading(width: 80, height: 24, borderRadius: 12),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SkeletonLoading(width: 200, height: 14, borderRadius: 4),
-          const SizedBox(height: 8),
-          SkeletonLoading(width: 150, height: 14, borderRadius: 4),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              SkeletonLoading(width: 120, height: 14, borderRadius: 4),
-              SkeletonLoading(width: 60, height: 16, borderRadius: 4),
-            ],
-          ),
-        ],
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      itemCount: 2,
+      itemBuilder: (_, __) => Container(
+        margin: const EdgeInsets.only(bottom: 24),
+        height: 220,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(26),
+        ),
       ),
     );
   }

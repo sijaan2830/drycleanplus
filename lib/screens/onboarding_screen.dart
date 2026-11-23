@@ -1,21 +1,37 @@
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import '../config/theme.dart';
+import '../widgets/dryclean_city_scene.dart';
+import '../widgets/dryclean_splash_view.dart';
 import '../widgets/dryclean_loader.dart';
-import '../widgets/app_logo.dart';
+import '../widgets/dc_plus_logo_badge.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/guest_helper.dart';
+import '../utils/route_helpers.dart';
 import '../providers/user_provider.dart';
 import 'terms_conditions_screen.dart';
 import 'privacy_policy_screen.dart';
 
+/// DrycleanPlus Customer Onboarding Screen matching the exact DrycleanPlus Onboarding design:
+///
+/// 1. Splash Stage:
+///    - Swinging silver hanger
+///    - Cursive "DrycleanPlus+" brand with glowing underline wave & sparkles
+///    - Cycling tag pill ("Collecting from your door", "Cleaning with care", "Pressing every crease")
+///    - Indicator dots
+///    - Full London skyline, London Eye, double-decker bus, and animated DC+ delivery van.
+///    - Tap anywhere or auto-transition after cycles to the Login Stage.
+///
+/// 2. Login Stage:
+///    - Frosted glass brand pill with official DC+ pick badge
+///    - Full animated city & van scene band (uncovered, vibrant, crisp)
+///    - Compact white card at the bottom with Google & Guest sign-in
+///    - Interactive van drive-out on sign-in
+///    - Full-screen signature DrycleanLoader shown after sign-in.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -23,35 +39,45 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen>
-    with SingleTickerProviderStateMixin {
-  bool _isAppleLoading = false;
+class _OnboardingScreenState extends State<OnboardingScreen> with TickerProviderStateMixin {
+  bool _isSplash = true;
   bool _isGoogleLoading = false;
+  bool _isAppleLoading = false;
   bool _isGuestLoading = false;
+  bool _vanDriveOut = false;
+
   final AuthService _authService = AuthService();
-  late AnimationController _animController;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
+
+  late final AnimationController _shimmerController;
+  late final AnimationController _loginFadeController;
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
+    _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 3600),
+    )..repeat();
+
+    _loginFadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.12),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
-    _animController.forward();
+
     _checkExistingUser();
+
+    // Custom splash screen (city scene with van & animated tags) auto-transitions after all tags complete (~4.4 seconds)
+    Future.delayed(const Duration(milliseconds: 4400), () {
+      if (mounted && _isSplash) {
+        _transitionToLogin();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _animController.dispose();
+    _shimmerController.dispose();
+    _loginFadeController.dispose();
     super.dispose();
   }
 
@@ -60,93 +86,129 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
     final isGuest = prefs.getBool('is_guest') ?? false;
 
-    if (isLoggedIn && !isGuest) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/home',
-            (Route<dynamic> route) => false,
-          );
-        }
-      });
+    if (isLoggedIn && !isGuest && mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (Route<dynamic> route) => false,
+      );
     }
   }
 
-  void _navigateWithLoader(String route, {int durationMs = 1200, int loops = 3}) {
+  void _transitionToLogin() {
+    if (!_isSplash) return;
+    setState(() => _isSplash = false);
+    _loginFadeController.forward();
+  }
+
+  void _navigateWithLoader(String route, {int durationMs = 1800, int loops = 2}) {
+    RouteNotifier().endLogout();
     Navigator.of(context).push(
       PageRouteBuilder(
+        settings: const RouteSettings(name: '/loader'),
         pageBuilder: (context, animation, secondaryAnimation) =>
             DrycleanLoader(durationMs: durationMs, loops: loops),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
+        transitionDuration: const Duration(milliseconds: 250),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
       ),
     ).then((_) {
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil(route, (Route<dynamic> route) => false);
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(route, (Route<dynamic> route) => false);
+      }
     });
   }
 
   Future<void> _continueAsGuest() async {
-    setState(() => _isGuestLoading = true);
+    if (_isGuestLoading || _isGoogleLoading) return;
+    setState(() {
+      _isGuestLoading = true;
+      _vanDriveOut = true;
+    });
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_displayName', 'Guest');
     await prefs.setBool('is_guest', true);
     await prefs.setBool('is_logged_in', true);
-    if (mounted) _navigateWithLoader('/guest_prices'); // now 1.2s
+    await GuestHelper.setGuestStatus(true);
+
+    await Future.delayed(const Duration(milliseconds: 650));
+    if (mounted) {
+      _navigateWithLoader('/home', durationMs: 1200, loops: 1);
+    }
     if (mounted) setState(() => _isGuestLoading = false);
   }
 
-  Future<void> _signInWithApple() async {
-    setState(() => _isAppleLoading = true);
-    try {
-      final userCredential = await _authService.signInWithApple();
-      if (userCredential != null && userCredential.user != null && mounted) {
-        await GuestHelper.setGuestStatus(false);
-        final firestoreService = FirestoreService();
-        await firestoreService.initializeUserData();
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        await userProvider.loadUserDataFromFirestore(userCredential.user!.uid);
-        if (mounted) _navigateWithLoader('/home');
-      } else if (userCredential == null) {
-        // User cancelled, do nothing
-      } else if (mounted) {
-        _showError('Apple Sign In failed. Please try again.');
-      }
-    } catch (e) {
-      if (mounted) _showError(e.toString());
-    } finally {
-      if (mounted) setState(() => _isAppleLoading = false);
-    }
-  }
-
   Future<void> _signInWithGoogle() async {
-    setState(() => _isGoogleLoading = true);
+    if (_isGoogleLoading || _isGuestLoading) return;
+    setState(() {
+      _isGoogleLoading = true;
+      _vanDriveOut = true;
+    });
+
     try {
       final userCredential = await _authService.signInWithGoogle();
       if (userCredential != null && userCredential.user != null && mounted) {
         await GuestHelper.setGuestStatus(false);
         final firestoreService = FirestoreService();
         await firestoreService.initializeUserData();
+        if (!mounted) return;
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         await userProvider.loadUserDataFromFirestore(userCredential.user!.uid);
-        if (mounted) _navigateWithLoader('/home'); // now 1.2s
-      } else if (userCredential == null) {
-        // User cancelled, do nothing
+
+        await Future.delayed(const Duration(milliseconds: 650));
+        if (mounted) {
+          _navigateWithLoader('/home', durationMs: 1800, loops: 2);
+        }
       } else if (mounted) {
-        _showError('Sign in failed. Please try again.');
+        setState(() => _vanDriveOut = false);
       }
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) {
+        setState(() => _vanDriveOut = false);
+        _showError(e.toString());
+      }
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    if (_isAppleLoading || _isGoogleLoading || _isGuestLoading) return;
+    setState(() {
+      _isAppleLoading = true;
+      _vanDriveOut = true;
+    });
+
+    try {
+      final userCredential = await _authService.signInWithApple();
+      if (userCredential != null && userCredential.user != null && mounted) {
+        await GuestHelper.setGuestStatus(false);
+        final firestoreService = FirestoreService();
+        await firestoreService.initializeUserData();
+        if (!mounted) return;
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.loadUserDataFromFirestore(userCredential.user!.uid);
+
+        await Future.delayed(const Duration(milliseconds: 650));
+        if (mounted) {
+          _navigateWithLoader('/home', durationMs: 1800, loops: 2);
+        }
+      } else if (mounted) {
+        setState(() => _vanDriveOut = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _vanDriveOut = false);
+        _showError(e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _isAppleLoading = false);
     }
   }
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg,
-            style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+        content: Text(msg, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.white)),
         backgroundColor: const Color(0xFFB00020),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -160,648 +222,624 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: AppColors.primaryBlue,
-        body: Column(
-          children: [
-            // Hero content (no Stack wave)
-            _HeroSection(),
+        backgroundColor: const Color(0xFF1546C0),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          child: _isSplash
+              ? GestureDetector(
+                  onTap: _transitionToLogin,
+                  child: DrycleanSplashView(
+                    key: const ValueKey('splash_view'),
+                    autoCycle: true,
+                    cycleDuration: const Duration(milliseconds: 1400),
+                    onFinished: _transitionToLogin,
+                  ),
+                )
+              : _buildLoginScreen(),
+        ),
+      ),
+    );
+  }
 
-            // Wave sits here — between hero and card
-            CustomPaint(
-              size: const Size(double.infinity, 42),
-              painter: _WavePainter(),
+  // ── Login Screen ──────────────────────────────────────────────────────────
+
+  Widget _buildLoginScreen() {
+    return Container(
+      key: const ValueKey('login_view'),
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF2D82F7),
+            Color(0xFF1C5FE6),
+            Color(0xFF1546C0),
+          ],
+          stops: [0.0, 0.42, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 12),
+
+                      // Top Frosted Glass Brand Pill
+                      _buildBrandPill(),
+                      const SizedBox(height: 4),
+
+                      // Full animated city scene with van & flag (uncovered, plenty of room)
+                      Expanded(
+                        child: ClipRect(
+                          child: DrycleanCityScene(
+                            mode: SceneDisplayMode.band,
+                            animateDriveOut: _vanDriveOut,
+                          ),
+                        ),
+                      ),
+
+                      // 3 Feature Chips
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+                        child: Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _buildFeatureChip(Icons.local_shipping_rounded, 'Doorstep collection'),
+                            _buildFeatureChip(Icons.bolt_rounded, 'Fast turnaround'),
+                            _buildFeatureChip(Icons.verified_rounded, 'Careful cleaning'),
+                          ],
+                        ),
+                      ),
+
+                      // Bottom White Sign-in Sheet (compact size, taking minimal space)
+                      _buildBottomSheet(),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ── Brand Pill (.lpill) ───────────────────────────────────────────────────
+
+  Widget _buildBrandPill() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 6, 20, 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: Colors.white,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const DCPlusLogoBadge(size: 38),
+          const SizedBox(width: 8),
+
+          // Cursive Logo matching Home screen last card
+          RichText(
+            text: TextSpan(
+              style: GoogleFonts.satisfy(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                fontStyle: FontStyle.italic,
+              ),
+              children: const [
+                TextSpan(
+                  text: 'Dryclean',
+                  style: TextStyle(
+                    color: Color(0xFF042407), // Home card dark green
+                  ),
+                ),
+                TextSpan(
+                  text: 'Plus',
+                  style: TextStyle(
+                    color: Color(0xFFE5262D), // Home card red
+                  ),
+                ),
+                TextSpan(
+                  text: '+',
+                  style: TextStyle(
+                    color: Color(0xFFE5262D),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 27,
+                  ),
+                ),
+              ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Login card
-            Expanded(child: _LoginCard()),
+  Widget _buildFeatureChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.28),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFFFFD75E)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Compact White Bottom Sheet ────────────────────────────────────────────
+
+  Widget _buildBottomSheet() {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        22,
+        12,
+        22,
+        18 + (bottomInset > 10 ? bottomInset - 4 : bottomInset),
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x280A2A70),
+            blurRadius: 24,
+            offset: Offset(0, -6),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Gray handle
+          Container(
+            width: 44,
+            height: 5,
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE4EAF5),
+              borderRadius: BorderRadius.circular(9),
+            ),
+          ),
+
+          // Title
+          Text(
+            "Let's get started",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 24.0,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF14213D),
+              letterSpacing: -0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // Subtitle
+          Text(
+            'Sign in to book and track your orders',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14.0,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF6F7D96),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Continue with Google Button (.gb)
+          _buildGoogleButton(),
+          const SizedBox(height: 12),
+
+          // Optional Apple Button (on iOS or if supported)
+          if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+            _buildAppleButton(),
+            const SizedBox(height: 12),
+          ],
+
+          // "or" divider (.orl)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(child: Container(height: 1, color: const Color(0xFFE4EAF5))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    'or',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF6F7D96),
+                    ),
+                  ),
+                ),
+                Expanded(child: Container(height: 1, color: const Color(0xFFE4EAF5))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Continue as guest Button (.gs)
+          _buildGuestButton(),
+          const SizedBox(height: 16),
+
+          // Terms & Privacy Policy
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.0,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF6F7D96),
+                height: 1.45,
+              ),
+              children: [
+                const TextSpan(text: 'By continuing you agree to our '),
+                WidgetSpan(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const TermsConditionsScreen()),
+                      );
+                    },
+                    child: Text(
+                      'Terms',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1550E8),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+                const TextSpan(text: ' & '),
+                WidgetSpan(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+                      );
+                    },
+                    child: Text(
+                      'Privacy Policy',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1550E8),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Google Button (.gb) ───────────────────────────────────────────────────
+
+  Widget _buildGoogleButton() {
+    return GestureDetector(
+      onTap: _isGoogleLoading ? null : _signInWithGoogle,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0xFFE4EAF5), width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x180A2A70),
+              blurRadius: 16,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Google 'G' Icon in soft circle
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFE8F0FF),
+              ),
+              child: Center(
+                child: CustomPaint(
+                  size: const Size(20, 20),
+                  painter: _GoogleLogoPainter(),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'Continue with Google',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF14213D),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 40,
+              child: Center(
+                child: _isGoogleLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1550E8)),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Color(0xFF6F7D96),
+                        size: 20,
+                      ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _HeroSection() {
-    final Size size = MediaQuery.of(context).size;
-    return SizedBox(
-      height: size.height * 0.46, // Adjusted slightly for the wave
-      width: double.infinity,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Background doodle icons (subtle)
-          const _DoodleLayer(),
+  // ── Apple Button ──────────────────────────────────────────────────────────
 
-          // Main content
-          SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 12),
-
-                // ── DC+ Logo Badge ──────────────────────────
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.gold.withOpacity(0.25),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: ShapeDecoration(
-                          color: const Color(0xFF071A09),
-                          shadows: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                          shape: const CustomOrganicBorder(),
-                        ),
-                        child: Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'DC',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              Text(
-                                '+',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const AppLogo(
-                          fontSize: 22,
-                          secondaryColor: Colors.red),
-                      const SizedBox(width: 6),
-                      Icon(Icons.auto_awesome,
-                          size: 13, color: Colors.yellow[300]),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Headline ────────────────────────────────
-                Text(
-                  'Premium Care,\nDelivered to You',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    height: 1.2,
-                    letterSpacing: -0.8,
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    'Professional dry cleaning & laundry\nat your doorstep — fast & reliable.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white.withOpacity(0.55),
-                      height: 1.6,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Feature Pills ───────────────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    _FeaturePill(icon: Icons.flash_on_rounded, label: 'Express'),
-                    SizedBox(width: 8),
-                    _FeaturePill(icon: Icons.eco_rounded, label: 'Eco-Clean'),
-                    SizedBox(width: 8),
-                    _FeaturePill(
-                        icon: Icons.verified_rounded, label: 'Guaranteed'),
-                  ],
-                ),
-              ],
+  Widget _buildAppleButton() {
+    return GestureDetector(
+      onTap: _isAppleLoading ? null : _signInWithApple,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 16,
+              offset: Offset(0, 4),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _LoginCard() {
-    return Container(
-      color: AppColors.primaryBlueDark,
-      child: FadeTransition(
-        opacity: _fadeAnim,
-        child: SlideTransition(
-          position: _slideAnim,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Section header
-                Row(
-                  children: [
-                    Container(
-                      width: 3,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: AppColors.gold,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Sign in to continue',
-                      style: GoogleFonts.inter(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // ── Apple Button (iOS & Web) ───────────────
-                if (kIsWeb || Theme.of(context).platform == TargetPlatform.iOS) ...[
-                  _AppleSignInButton(
-                    isLoading: _isAppleLoading,
-                    onPressed: _signInWithApple,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // ── Google Button ─────────────────────────
-                _GoogleSignInButton(
-                  isLoading: _isGoogleLoading,
-                  onPressed: _signInWithGoogle,
-                ),
-
-                const SizedBox(height: 14),
-
-                // ── OR Divider ────────────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: Divider(
-                        color: Colors.white.withOpacity(0.1),
-                        thickness: 1,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'or',
-                        style: GoogleFonts.inter(
-                          color: Colors.white.withOpacity(0.3),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Divider(
-                        color: Colors.white.withOpacity(0.1),
-                        thickness: 1,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                // ── Guest Button ──────────────────────────
-                _GuestButton(
-                  isLoading: _isGuestLoading,
-                  onPressed: _continueAsGuest,
-                ),
-
-                const Spacer(),
-
-                // ── Legal Footer ──────────────────────────
-                Center(
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    children: [
-                      Text(
-                        'By continuing you agree to our ',
-                        style: GoogleFonts.inter(
-                          color: Colors.white.withOpacity(0.32),
-                          fontSize: 11.5,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const TermsConditionsScreen()),
-                        ),
-                        child: Text(
-                          'Terms',
-                          style: GoogleFonts.inter(
-                            color: AppColors.gold,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11.5,
-                            decoration: TextDecoration.underline,
-                            decorationColor: AppColors.gold,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        ' & ',
-                        style: GoogleFonts.inter(
-                          color: Colors.white.withOpacity(0.32),
-                          fontSize: 11.5,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const PrivacyPolicyScreen()),
-                        ),
-                        child: Text(
-                          'Privacy Policy',
-                          style: GoogleFonts.inter(
-                            color: AppColors.gold,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11.5,
-                            decoration: TextDecoration.underline,
-                            decorationColor: AppColors.gold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Feature Pill Widget
-// ────────────────────────────────────────────────────────────────────────────
-class _FeaturePill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _FeaturePill({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(50),
-        border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.gold, size: 13),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              color: Colors.white.withOpacity(0.82),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.15),
+              ),
+              child: const Center(
+                child: Icon(Icons.apple, color: Colors.white, size: 22),
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Doodle Background (subtle, decluttered)
-// ────────────────────────────────────────────────────────────────────────────
-class _DoodleLayer extends StatelessWidget {
-  const _DoodleLayer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: Stack(children: [
-        _d(Icons.dry_cleaning,           top: 44,  left: 10,  s: 20, o: 0.18),
-        _d(Icons.checkroom,              top: 55,  left: 44,  s: 14, o: 0.11),
-        _d(Icons.local_laundry_service,  top: 48,  right: 55, s: 18, o: 0.14),
-        _d(Icons.dry_cleaning,           top: 50,  right: 18, s: 20, o: 0.16),
-        _d(Icons.checkroom,              top: 80,  left: 22,  s: 16, o: 0.10),
-        _d(Icons.local_laundry_service,  top: 90,  right: 30, s: 14, o: 0.10),
-        _d(Icons.dry_cleaning,           top: 115, left: 58,  s: 12, o: 0.09),
-        _d(Icons.checkroom,              top: 125, right: 65, s: 15, o: 0.09),
-        _d(Icons.local_laundry_service,  top: 155, left: 14,  s: 14, o: 0.08),
-        _d(Icons.dry_cleaning,           top: 162, right: 16, s: 16, o: 0.10),
-      ]),
-    );
-  }
-
-  Widget _d(IconData icon,
-      {double? top, double? bottom, double? left, double? right,
-      double s = 16, double o = 0.14}) {
-    return Positioned(
-      top: top, bottom: bottom, left: left, right: right,
-      child: Opacity(
-        opacity: o,
-        child: Icon(icon, size: s, color: Colors.white),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Professional Apple Sign-In Button (Guideline 4.8 Compliant)
-// ────────────────────────────────────────────────────────────────────────────
-class _AppleSignInButton extends StatelessWidget {
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  const _AppleSignInButton(
-      {required this.isLoading, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: isLoading ? null : onPressed,
-        borderRadius: BorderRadius.circular(14),
-        splashColor: Colors.white.withOpacity(0.15),
-        child: SizedBox(
-          height: 56,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isLoading)
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                else
-                  const Icon(
-                    Icons.apple,
-                    size: 24,
-                    color: Colors.white,
-                  ),
-                const SizedBox(width: 10),
-                Text(
-                  isLoading ? 'Signing in...' : 'Sign in with Apple',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Professional Google Sign-In Button
-// ────────────────────────────────────────────────────────────────────────────
-class _GoogleSignInButton extends StatelessWidget {
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  const _GoogleSignInButton(
-      {required this.isLoading, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: isLoading ? null : onPressed,
-        borderRadius: BorderRadius.circular(14),
-        splashColor: Colors.grey.withOpacity(0.15),
-        child: SizedBox(
-          height: 56,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isLoading)
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Color(0xFF4285F4)),
-                    ),
-                  )
-                else
-                  SvgPicture.string(
-                    '''<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                    </svg>''',
-                    width: 22,
-                    height: 22,
-                  ),
-                const SizedBox(width: 12),
-                Text(
-                  isLoading ? 'Signing in...' : 'Continue with Google',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1F1F1F),
-                    letterSpacing: 0.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-// ────────────────────────────────────────────────────────────────────────────
-// Guest Button
-// ────────────────────────────────────────────────────────────────────────────
-class _GuestButton extends StatelessWidget {
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  const _GuestButton({required this.isLoading, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isLoading ? null : onPressed,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.15),
-              width: 1.5,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.white54),
-                  ),
-                )
-              else
-                Icon(Icons.person_outline_rounded,
-                    color: Colors.white.withOpacity(0.6), size: 20),
-              const SizedBox(width: 12),
-              Text(
-                isLoading ? 'Loading...' : 'Continue as Guest',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withOpacity(0.70),
+            Expanded(
+              child: Text(
+                'Continue with Apple',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
                 ),
               ),
-            ],
+            ),
+            SizedBox(
+              width: 40,
+              child: Center(
+                child: _isAppleLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Guest Button (.gs) ────────────────────────────────────────────────────
+
+  Widget _buildGuestButton() {
+    return GestureDetector(
+      onTap: _isGuestLoading ? null : _continueAsGuest,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF5AA4FF), Color(0xFF1352D6)],
           ),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1352D6).withValues(alpha: 0.35),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.25),
+              ),
+              child: const Center(
+                child: Icon(Icons.explore_outlined, color: Colors.white, size: 22),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'Continue as guest',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 40,
+              child: Center(
+                child: _isGuestLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Professional Wave Painter (clean S-curve, single smooth wave)
-// ────────────────────────────────────────────────────────────────────────────
-class _WavePainter extends CustomPainter {
+/// Official 4-color Google 'G' vector painter
+class _GoogleLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.primaryBlueDark
-      ..style = PaintingStyle.fill;
+    canvas.save();
+    canvas.scale(size.width / 48.0, size.height / 48.0);
 
-    final path = Path()
-      ..moveTo(0, size.height)
-      ..cubicTo(
-        size.width * 0.00, size.height * 0.28,  // ctrl-1: left anchor up
-        size.width * 0.38, size.height * 0.00,  // ctrl-2: center dip
-        size.width * 0.50, size.height * 0.22,  // mid-peak
-      )
-      ..cubicTo(
-        size.width * 0.62, size.height * 0.44,  // ctrl-1: right rise
-        size.width * 1.00, size.height * 0.06,  // ctrl-2: right anchor
-        size.width * 1.00, size.height * 0.00,  // end top-right
-      )
-      ..lineTo(size.width, size.height)
+    // Red
+    final redPaint = Paint()..color = const Color(0xFFEA4335);
+    final redPath = Path()
+      ..moveTo(24, 9.5)
+      ..cubicTo(27.54, 9.5, 30.71, 10.72, 33.21, 13.1)
+      ..lineTo(40.06, 6.25)
+      ..cubicTo(35.9, 2.38, 30.47, 0, 24, 0)
+      ..cubicTo(14.62, 0, 6.51, 5.38, 2.56, 13.22)
+      ..lineTo(10.54, 19.41)
+      ..cubicTo(12.43, 13.72, 17.74, 9.5, 24, 9.5)
       ..close();
+    canvas.drawPath(redPath, redPaint);
 
-    canvas.drawPath(path, paint);
+    // Blue
+    final bluePaint = Paint()..color = const Color(0xFF4285F4);
+    final bluePath = Path()
+      ..moveTo(46.98, 24.55)
+      ..cubicTo(46.98, 22.98, 46.83, 21.46, 46.6, 20)
+      ..lineTo(24, 20)
+      ..lineTo(24, 29.02)
+      ..lineTo(36.94, 29.02)
+      ..cubicTo(36.36, 31.98, 34.68, 34.5, 32.16, 36.2)
+      ..lineTo(39.89, 42.2)
+      ..cubicTo(44.4, 38.02, 46.98, 31.84, 46.98, 24.55)
+      ..close();
+    canvas.drawPath(bluePath, bluePaint);
+
+    // Yellow
+    final yellowPaint = Paint()..color = const Color(0xFFFBBC05);
+    final yellowPath = Path()
+      ..moveTo(10.53, 28.59)
+      ..cubicTo(10.05, 27.14, 9.77, 25.6, 9.77, 24)
+      ..cubicTo(9.77, 22.4, 10.05, 20.86, 10.53, 19.41)
+      ..lineTo(2.55, 13.22)
+      ..cubicTo(0.92, 16.46, 0, 20.12, 0, 24)
+      ..cubicTo(0, 27.88, 0.92, 31.54, 2.56, 34.78)
+      ..lineTo(10.53, 28.59)
+      ..close();
+    canvas.drawPath(yellowPath, yellowPaint);
+
+    // Green
+    final greenPaint = Paint()..color = const Color(0xFF34A853);
+    final greenPath = Path()
+      ..moveTo(24, 48)
+      ..cubicTo(30.48, 48, 35.93, 45.87, 39.89, 42.19)
+      ..lineTo(32.16, 36.19)
+      ..cubicTo(30.01, 37.64, 27.24, 38.49, 24, 38.49)
+      ..cubicTo(17.74, 38.49, 12.43, 34.27, 10.53, 28.58)
+      ..lineTo(2.55, 34.77)
+      ..cubicTo(6.51, 42.62, 14.62, 48, 24, 48)
+      ..close();
+    canvas.drawPath(greenPath, greenPaint);
+
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Custom Organic Border (unchanged from original)
-// ────────────────────────────────────────────────────────────────────────────
-class CustomOrganicBorder extends ShapeBorder {
-  const CustomOrganicBorder();
-
-  @override
-  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
-
-  @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
-      getOuterPath(rect, textDirection: textDirection);
-
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
-    return Path()
-      ..addRRect(RRect.fromRectAndCorners(
-        rect,
-        topLeft: Radius.elliptical(rect.width * 0.3, rect.height * 0.3),
-        topRight: Radius.elliptical(rect.width * 0.7, rect.height * 0.3),
-        bottomRight: Radius.elliptical(rect.width * 0.7, rect.height * 0.7),
-        bottomLeft: Radius.elliptical(rect.width * 0.3, rect.height * 0.7),
-      ));
-  }
-
-  @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawPath(getOuterPath(rect), paint);
-  }
-
-  @override
-  ShapeBorder scale(double t) => const CustomOrganicBorder();
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -92,5 +92,7 @@
 				</array>
 			</dict>
 		</array>
-	</dict>
+		<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DrycleanPlus uses your location once to fill in your collection address automatically.</string>
+</dict>
 </plist>

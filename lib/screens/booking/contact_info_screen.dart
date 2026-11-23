@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../config/theme.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
+import '../../config/theme.dart';
 import '../../providers/booking_provider.dart';
 import '../../providers/user_provider.dart';
 
@@ -10,82 +11,80 @@ class ContactInfoScreen extends StatefulWidget {
   final bool isEditMode;
   final bool isFromBookingFlow;
 
-  const ContactInfoScreen(
-      {super.key, this.isEditMode = false, this.isFromBookingFlow = false});
+  const ContactInfoScreen({
+    super.key,
+    this.isEditMode = false,
+    this.isFromBookingFlow = false,
+  });
 
   @override
   State<ContactInfoScreen> createState() => _ContactInfoScreenState();
 }
 
-class _ContactInfoScreenState extends State<ContactInfoScreen>
-    with SingleTickerProviderStateMixin {
-  // Form State
-  bool isIndividual = true;
+class _ContactInfoScreenState extends State<ContactInfoScreen> {
+  bool _isIndividual = true;
+  String _countryCode = 'uk'; // 'uk' (+44) or 'ie' (+353)
+
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _companyNameController = TextEditingController();
   final TextEditingController _taxNumberController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  late AnimationController _animController;
-  late Animation<double> _fadeIn;
+  bool get _isFormValid {
+    final fn = _firstNameController.text.trim();
+    final ln = _lastNameController.text.trim();
+    final phDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
 
-  // Simple validation logic
-  bool get isFormValid {
-    bool baseValid = _firstNameController.text.isNotEmpty &&
-        _lastNameController.text.isNotEmpty &&
-        _phoneController.text.isNotEmpty;
-
-    if (!isIndividual) {
-      return baseValid && _companyNameController.text.isNotEmpty;
+    final baseValid = fn.isNotEmpty && ln.isNotEmpty && phDigits.length >= 7;
+    if (!_isIndividual) {
+      return baseValid && _companyNameController.text.trim().isNotEmpty;
     }
     return baseValid;
+  }
+
+  String get _initials {
+    final f = _firstNameController.text.trim();
+    final l = _lastNameController.text.trim();
+    String res = '';
+    if (f.isNotEmpty) res += f[0];
+    if (l.isNotEmpty) res += l[0];
+    return res.toUpperCase();
   }
 
   @override
   void initState() {
     super.initState();
 
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _fadeIn = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _animController.forward();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (args != null && args['isFromBookingFlow'] == true) {
-        setState(() {});
-      }
-    });
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+
       if (userProvider.hasUserData) {
         _firstNameController.text = userProvider.firstName;
         _lastNameController.text = userProvider.lastName;
         _phoneController.text = userProvider.phone;
-        isIndividual = userProvider.customerType == 'individual';
+        _isIndividual = userProvider.customerType != 'company';
         _companyNameController.text = userProvider.companyName ?? '';
-        setState(() {});
+      } else if (bookingProvider.hasUserContactInfo) {
+        _firstNameController.text = bookingProvider.bookingData.firstName;
+        _lastNameController.text = bookingProvider.bookingData.lastName;
+        _phoneController.text = bookingProvider.bookingData.phone;
+        _isIndividual = bookingProvider.bookingData.customerType != 'company';
+        _companyNameController.text = bookingProvider.bookingData.companyName ?? '';
       }
+      setState(() {});
     });
 
     _firstNameController.addListener(() => setState(() {}));
     _lastNameController.addListener(() => setState(() {}));
     _companyNameController.addListener(() => setState(() {}));
-    _phoneController.addListener(() {
-      setState(() {});
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      userProvider.updatePhone(_phoneController.text.trim());
-    });
+    _taxNumberController.addListener(() => setState(() {}));
+    _phoneController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _animController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _companyNameController.dispose();
@@ -94,519 +93,810 @@ class _ContactInfoScreenState extends State<ContactInfoScreen>
     super.dispose();
   }
 
-  void _saveAndContinue() async {
-    if (isFormValid) {
-      final bookingProvider =
-          Provider.of<BookingProvider>(context, listen: false);
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
+  Future<void> _saveAndContinue() async {
+    if (!_isFormValid) return;
 
-      await bookingProvider.updateContactInfoInFirestore(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        email: bookingProvider.userEmail,
-        phone: _phoneController.text.trim(),
-      );
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-      await userProvider.saveUserData(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        customerType: isIndividual ? 'individual' : 'company',
-        companyName:
-            !isIndividual ? _companyNameController.text.trim() : null,
-      );
+    final fn = _firstNameController.text.trim();
+    final ln = _lastNameController.text.trim();
+    final ph = _phoneController.text.trim();
+    final cn = !_isIndividual ? _companyNameController.text.trim() : null;
+    final cType = _isIndividual ? 'individual' : 'company';
 
-      bookingProvider.updateContactInfo(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        email: '',
-        phone: _phoneController.text.trim(),
-        customerType: isIndividual ? 'individual' : 'company',
-        companyName:
-            !isIndividual ? _companyNameController.text.trim() : null,
-      );
+    await bookingProvider.updateContactInfoInFirestore(
+      firstName: fn,
+      lastName: ln,
+      email: bookingProvider.userEmail,
+      phone: ph,
+    );
 
-      bookingProvider.acceptTerms(true);
+    await userProvider.saveUserData(
+      firstName: fn,
+      lastName: ln,
+      phone: ph,
+      customerType: cType,
+      companyName: cn,
+    );
 
-      final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      final isFromBookingFlow =
-          widget.isFromBookingFlow || (args?['isFromBookingFlow'] == true);
+    bookingProvider.updateContactInfo(
+      firstName: fn,
+      lastName: ln,
+      email: bookingProvider.userEmail,
+      phone: ph,
+      customerType: cType,
+      companyName: cn,
+    );
 
-      if (widget.isEditMode) {
-        Navigator.of(context).pop();
-      } else if (isFromBookingFlow) {
-        Navigator.of(context).pushNamed('/booking_overview');
-      } else {
-        Navigator.of(context).pushNamed('/booking_overview');
-      }
+    bookingProvider.acceptTerms(true);
+
+    if (!mounted) return;
+
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final inBooking = widget.isFromBookingFlow || (args?['isFromBookingFlow'] == true);
+
+    if (widget.isEditMode) {
+      Navigator.of(context).pop();
+    } else if (inBooking) {
+      Navigator.of(context).pushNamed('/booking_overview');
+    } else {
+      Navigator.of(context).pushNamed('/booking_overview');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final valid = _isFormValid;
+    final initials = _initials;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryBlue,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBlue,
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: IconButton(
-            icon: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.white.withOpacity(0.12),
-                  width: 1,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppColors.bgGradient,
+        ),
+        child: Stack(
+          children: [
+            // Ambient top-right decorative circle
+            Positioned(
+              top: -140,
+              right: -150,
+              child: Container(
+                width: 360,
+                height: 360,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.07),
                 ),
               ),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  color: AppColors.white, size: 16),
             ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-        centerTitle: true,
-        // ── "Contact" title using Cormorant Garamond (Google Font) ──
-        title: Text(
-          "Contact",
-          style: GoogleFonts.inter(
-            color: AppColors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            letterSpacing: 0.2,
-          ),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  AppColors.gold.withOpacity(0.5),
-                  Colors.transparent,
-                ],
+            // Ambient bottom-left decorative circle
+            Positioned(
+              bottom: -160,
+              left: -210,
+              child: Container(
+                width: 420,
+                height: 420,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.05),
+                ),
               ),
             ),
-          ),
-        ),
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-      ),
-      body: FadeTransition(
-        opacity: _fadeIn,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Type Toggle ────────────────────────────────────
-                    _buildTypeSelector(),
-                    const SizedBox(height: 20),
 
-                    // ── First + Last Name ──────────────────────────────
-                    Row(
+            SafeArea(
+              child: Column(
+                children: [
+                  // Top Header Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: _buildField(
-                            controller: _firstNameController,
-                            hint: "First name",
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.18),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.22),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildField(
-                            controller: _lastNameController,
-                            hint: "Last name",
+                        Text(
+                          'Contact',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(width: 44),
+                      ],
+                    ),
+                  ),
+
+                  // Scrollable Body
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 120),
+                      children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 480),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Hero Row: Title & Illustration badge
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Who’s booking?',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              letterSpacing: -0.5,
+                                              height: 1.15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            'We use this to confirm your pickup and keep you updated.',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: const Color(0xFFDDE8FF),
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    // 88x88 Floating Illustration Badge
+                                    Container(
+                                      width: 88,
+                                      height: 88,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(30),
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: const Color(0xFFE8F0FF),
+                                          width: 5,
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x8C02104C),
+                                            blurRadius: 22,
+                                            offset: Offset(0, 14),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Image.asset(
+                                          'assets/images/price_dryclean.png',
+                                          width: 56,
+                                          height: 56,
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 18),
+
+                                // Segmented Control (Individual / Company)
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(999),
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.22),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(() => _isIndividual = true),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 200),
+                                            height: 44,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(999),
+                                              color: _isIndividual ? Colors.white : Colors.transparent,
+                                              boxShadow: _isIndividual
+                                                  ? const [
+                                                      BoxShadow(
+                                                        color: Color(0x6602104C),
+                                                        blurRadius: 12,
+                                                        offset: Offset(0, 4),
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 2),
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.person_rounded,
+                                                      size: 18,
+                                                      color: _isIndividual
+                                                          ? const Color(0xFF0B1F5B)
+                                                          : Colors.white,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      'Individual',
+                                                      style: GoogleFonts.plusJakartaSans(
+                                                        fontSize: 14.0,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: _isIndividual
+                                                            ? const Color(0xFF0B1F5B)
+                                                            : Colors.white,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(() => _isIndividual = false),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 200),
+                                            height: 44,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(999),
+                                              color: !_isIndividual ? Colors.white : Colors.transparent,
+                                              boxShadow: !_isIndividual
+                                                  ? const [
+                                                      BoxShadow(
+                                                        color: Color(0x6602104C),
+                                                        blurRadius: 12,
+                                                        offset: Offset(0, 4),
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 2),
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.business_rounded,
+                                                      size: 18,
+                                                      color: !_isIndividual
+                                                          ? const Color(0xFF0B1F5B)
+                                                          : Colors.white,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      'Company',
+                                                      style: GoogleFonts.plusJakartaSans(
+                                                        fontSize: 14.0,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: !_isIndividual
+                                                            ? const Color(0xFF0B1F5B)
+                                                            : Colors.white,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+
+                                // Details Card (cd v)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(28),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x8C02104C),
+                                        blurRadius: 30,
+                                        offset: Offset(0, 16),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(28),
+                                    child: Stack(
+                                      children: [
+                                        // Background disc
+                                        Positioned(
+                                          top: -70,
+                                          right: -60,
+                                          child: Container(
+                                            width: 180,
+                                            height: 180,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: _isIndividual ? const Color(0xFFEEF0FF) : const Color(0xFFE6F4F1),
+                                            ),
+                                          ),
+                                        ),
+
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              // Header - changes dynamically based on Individual vs Company
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    width: 48,
+                                                    height: 44,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(16),
+                                                      gradient: LinearGradient(
+                                                        colors: _isIndividual
+                                                            ? const [Color(0xFF4338CA), Color(0xFF6D4AFF)]
+                                                            : const [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: (_isIndividual
+                                                                  ? const Color(0xFF4338CA)
+                                                                  : const Color(0xFF0F766E))
+                                                              .withValues(alpha: 0.35),
+                                                          blurRadius: 14,
+                                                          offset: const Offset(0, 6),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Center(
+                                                      child: _isIndividual
+                                                          ? (initials.isNotEmpty
+                                                              ? Text(
+                                                                  initials,
+                                                                  style: GoogleFonts.plusJakartaSans(
+                                                                    fontSize: 19,
+                                                                    fontWeight: FontWeight.w800,
+                                                                    color: Colors.white,
+                                                                  ),
+                                                                )
+                                                              : const Icon(Icons.person_rounded, color: Colors.white, size: 24))
+                                                          : const Icon(Icons.apartment_rounded, color: Colors.white, size: 24),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          _isIndividual ? 'Your details' : 'Company details',
+                                                          style: GoogleFonts.plusJakartaSans(
+                                                            fontSize: 19,
+                                                            fontWeight: FontWeight.w800,
+                                                            color: const Color(0xFF0B1F5B),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 2),
+                                                        Text(
+                                                          _isIndividual
+                                                              ? 'So our driver can reach you'
+                                                              : 'Business invoice & order details',
+                                                          style: GoogleFonts.plusJakartaSans(
+                                                            fontSize: 13,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: const Color(0xFF5B6B9A),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 16),
+
+                                              // If Company tab is selected, show company fields prominently first
+                                              if (!_isIndividual) ...[
+                                                _buildInput(
+                                                  controller: _companyNameController,
+                                                  label: 'Company name',
+                                                  icon: Icons.domain_rounded,
+                                                  textCapitalization: TextCapitalization.words,
+                                                ),
+                                                const SizedBox(height: 12),
+                                                _buildInput(
+                                                  controller: _taxNumberController,
+                                                  label: 'Tax / VAT number (optional)',
+                                                  icon: Icons.receipt_long_rounded,
+                                                ),
+                                                const SizedBox(height: 14),
+                                                Row(
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        color: const Color(0xFFE6F4F1),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF0F766E)),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            'CONTACT PERSON',
+                                                            style: GoogleFonts.plusJakartaSans(
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w800,
+                                                              letterSpacing: 0.6,
+                                                              color: const Color(0xFF0F766E),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 10),
+                                              ],
+
+                                              // First Name & Last Name in two columns
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: _buildInput(
+                                                      controller: _firstNameController,
+                                                      label: 'First name',
+                                                      textCapitalization: TextCapitalization.words,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: _buildInput(
+                                                      controller: _lastNameController,
+                                                      label: 'Last name',
+                                                      textCapitalization: TextCapitalization.words,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+
+                                              const SizedBox(height: 12),
+
+                                              // Phone number with country code picker (fixed 2.0px overflow)
+                                              Row(
+                                                children: [
+                                                  // Country Code selector
+                                                  Container(
+                                                    width: 114,
+                                                    height: 60,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(18),
+                                                      border: Border.all(color: const Color(0xFFE4EBFB), width: 2),
+                                                      color: const Color(0xFFF4F7FF),
+                                                    ),
+                                                    child: DropdownButtonHideUnderline(
+                                                      child: DropdownButton<String>(
+                                                        value: _countryCode,
+                                                        isExpanded: true,
+                                                        iconSize: 20,
+                                                        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF0B1F5B)),
+                                                        onChanged: (val) {
+                                                          if (val != null) setState(() => _countryCode = val);
+                                                        },
+                                                        items: [
+                                                          DropdownMenuItem(
+                                                            value: 'uk',
+                                                            child: FittedBox(
+                                                              fit: BoxFit.scaleDown,
+                                                              alignment: Alignment.centerLeft,
+                                                              child: Row(
+                                                                mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                  const Text('🇬🇧 ', style: TextStyle(fontSize: 16)),
+                                                                  Text(
+                                                                    '+44',
+                                                                    style: GoogleFonts.plusJakartaSans(
+                                                                      fontSize: 14.5,
+                                                                      fontWeight: FontWeight.w800,
+                                                                      color: const Color(0xFF0B1F5B),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          DropdownMenuItem(
+                                                            value: 'ie',
+                                                            child: FittedBox(
+                                                              fit: BoxFit.scaleDown,
+                                                              alignment: Alignment.centerLeft,
+                                                              child: Row(
+                                                                mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                  const Text('🇮🇪 ', style: TextStyle(fontSize: 16)),
+                                                                  Text(
+                                                                    '+353',
+                                                                    style: GoogleFonts.plusJakartaSans(
+                                                                      fontSize: 14,
+                                                                      fontWeight: FontWeight.w800,
+                                                                      color: const Color(0xFF0B1F5B),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 10),
+
+                                                  // Phone number input
+                                                  Expanded(
+                                                    child: _buildInput(
+                                                      controller: _phoneController,
+                                                      label: 'Phone number',
+                                                      keyboardType: TextInputType.phone,
+                                                      inputFormatters: [
+                                                        FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+]')),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Security Note Box
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.28),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.lock_rounded,
+                                        color: Color(0xFFFFC73A),
+                                        size: 22,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'Your information is encrypted and stored securely. We never share your details with third parties.',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                            height: 1.45,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-
-                    // ── Company Fields ─────────────────────────────────
-                    if (!isIndividual) ...[
-                      const SizedBox(height: 14),
-                      _buildField(
-                        controller: _companyNameController,
-                        hint: "Company name",
-                      ),
-                      const SizedBox(height: 14),
-                      _buildField(
-                        controller: _taxNumberController,
-                        hint: "Tax number (optional)",
-                      ),
-                    ],
-
-                    const SizedBox(height: 14),
-
-                    // ── Phone ──────────────────────────────────────────
-                    _buildPhoneField(),
-
-                    const SizedBox(height: 28),
-
-                    // ── Privacy Notice ─────────────────────────────────
-                    _buildPrivacyNotice(),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
 
-            // ── Sticky Save Button ─────────────────────────────────────
-            _buildSaveButton(),
+            // Fixed Bottom Dock CTA
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  14,
+                  16,
+                  14 + MediaQuery.of(context).padding.bottom,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      const Color(0xFF0A2468).withValues(alpha: 0.85),
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 448),
+                    child: GestureDetector(
+                      onTap: valid ? _saveAndContinue : null,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: 58,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          gradient: valid
+                              ? const LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [Color(0xFFFFD25E), Color(0xFFFFB400)],
+                                )
+                              : null,
+                          color: valid ? null : Colors.white.withValues(alpha: 0.2),
+                          boxShadow: valid
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x8CFFB400),
+                                    blurRadius: 20,
+                                    offset: Offset(0, 10),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'CONTINUE',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                                color: valid
+                                    ? const Color(0xFF0B1F5B)
+                                    : Colors.white.withValues(alpha: 0.75),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: valid
+                                  ? const Color(0xFF0B1F5B)
+                                  : Colors.white.withValues(alpha: 0.75),
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ─── Type Selector ──────────────────────────────────────────────────────────
-  Widget _buildTypeSelector() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.primaryBlueDark,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.gold.withOpacity(0.25),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          _buildTypeTab("Individual", isIndividual, () {
-            setState(() => isIndividual = true);
-          }),
-          _buildTypeTab("Company", !isIndividual, () {
-            setState(() => isIndividual = false);
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypeTab(String title, bool isSelected, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.gold.withOpacity(0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: isSelected
-                ? Border.all(color: AppColors.gold, width: 1.5)
-                : Border.all(color: Colors.transparent, width: 1.5),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.gold
-                        : AppColors.white.withOpacity(0.3),
-                    width: 2,
-                  ),
-                ),
-                child: isSelected
-                    ? Center(
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.gold,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight:
-                      isSelected ? FontWeight.w700 : FontWeight.w400,
-                  color: isSelected
-                      ? AppColors.gold
-                      : AppColors.white.withOpacity(0.55),
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Field — hint text only, no floating label ──────────────────────────────
-  Widget _buildField({
+  Widget _buildInput({
     required TextEditingController controller,
-    required String hint,
+    required String label,
+    IconData? icon,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: GoogleFonts.inter(
-        color: AppColors.white,
-        fontSize: 15,
-        fontWeight: FontWeight.w500,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.inter(
-          color: AppColors.white.withOpacity(0.35),
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-        ),
-        filled: true,
-        fillColor: AppColors.primaryBlueDark.withOpacity(0.85),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.gold, width: 1.5),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide:
-              BorderSide(color: AppColors.gold.withOpacity(0.3), width: 1.5),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.gold, width: 2),
-        ),
-      ),
-    );
-  }
+    final hasVal = controller.text.trim().isNotEmpty;
 
-  // ─── Phone Field ────────────────────────────────────────────────────────────
-  Widget _buildPhoneField() {
     return Container(
+      height: 60,
       decoration: BoxDecoration(
-        color: AppColors.primaryBlueDark.withOpacity(0.85),
-        border:
-            Border.all(color: AppColors.gold.withOpacity(0.3), width: 1.5),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: hasVal ? const Color(0xFF12A38A) : const Color(0xFFE4EBFB),
+          width: 2,
+        ),
+        color: const Color(0xFFF4F7FF),
       ),
-      child: Row(
+      child: Stack(
         children: [
-          // Country badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            height: 58,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.gold.withOpacity(0.18),
-                  AppColors.gold.withOpacity(0.06),
-                ],
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(13),
-                bottomLeft: Radius.circular(13),
-              ),
-              border: const Border(
-                right: BorderSide(color: AppColors.gold, width: 1),
-              ),
+          if (icon != null)
+            Positioned(
+              left: 14,
+              top: 18,
+              child: Icon(icon, color: const Color(0xFF6B7BA8), size: 22),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("🇬🇧", style: TextStyle(fontSize: 18)),
-                const SizedBox(height: 2),
-                Text(
-                  "UK",
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.gold,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ],
+          Padding(
+            padding: EdgeInsets.only(
+              left: icon != null ? 46 : 14,
+              right: hasVal ? 38 : 14,
+              top: 6,
             ),
-          ),
-
-          // Number input — hint only, no label
-          Expanded(
-            child: TextFormField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              style: GoogleFonts.inter(
-                color: AppColors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              inputFormatters: inputFormatters,
+              textCapitalization: textCapitalization,
+              cursorColor: const Color(0xFF1553D6),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0B1F5B),
               ),
               decoration: InputDecoration(
-                hintText: "Mobile number",
-                hintStyle: GoogleFonts.inter(
-                  color: AppColors.white.withOpacity(0.35),
+                labelText: label,
+                labelStyle: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
-                ),
-                prefixText: "+44 ",
-                prefixStyle: GoogleFonts.inter(
-                  color: AppColors.white.withOpacity(0.7),
                   fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  color: const Color(0xFF6B7BA8),
+                ),
+                floatingLabelStyle: GoogleFonts.plusJakartaSans(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1553D6),
                 ),
                 border: InputBorder.none,
-                filled: false,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 18),
+                isDense: true,
+                contentPadding: const EdgeInsets.only(top: 12, bottom: 4),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Privacy Notice — white text ─────────────────────────────────────────────
-  Widget _buildPrivacyNotice() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.gold.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.gold.withOpacity(0.22),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.lock_outline_rounded,
-              size: 16, color: AppColors.gold),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              "Your information is encrypted and stored securely. "
-              "We never share your details with third parties.",
-              style: GoogleFonts.inter(
-                fontSize: 12.5,
-                // ── bright white, clearly readable ──
-                color: AppColors.white,
-                height: 1.6,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Save Button ────────────────────────────────────────────────────────────
-  Widget _buildSaveButton() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-      decoration: BoxDecoration(
-        color: AppColors.primaryBlue,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.gold.withOpacity(0.15),
-            width: 1,
-          ),
-        ),
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: AnimatedOpacity(
-          opacity: isFormValid ? 1.0 : 0.45,
-          duration: const Duration(milliseconds: 200),
-          child: ElevatedButton(
-            onPressed: isFormValid ? _saveAndContinue : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              disabledBackgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              padding: EdgeInsets.zero,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: isFormValid
-                    ? LinearGradient(
-                        colors: [
-                          AppColors.gold,
-                          AppColors.gold.withOpacity(0.82),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      )
-                    : null,
-                color: isFormValid ? null : AppColors.primaryBlueDark,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.gold, width: 1.5),
-                boxShadow: isFormValid
-                    ? [
-                        BoxShadow(
-                          color: AppColors.gold.withOpacity(0.28),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : null,
-              ),
+          if (hasVal)
+            Positioned(
+              right: 12,
+              top: 20,
               child: Container(
-                alignment: Alignment.center,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.isEditMode ? "SAVE CHANGES" : "CONTINUE",
-                      style: GoogleFonts.inter(
-                        color: isFormValid
-                            ? AppColors.primaryBlue
-                            : AppColors.white.withOpacity(0.4),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                    if (isFormValid) ...[
-                      const SizedBox(width: 10),
-                      Icon(
-                        widget.isEditMode
-                            ? Icons.check_rounded
-                            : Icons.arrow_forward_rounded,
-                        color: AppColors.primaryBlue,
-                        size: 18,
-                      ),
-                    ],
-                  ],
+                width: 20,
+                height: 20,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF12A38A),
+                ),
+                child: const Center(
+                  child: Icon(Icons.check_rounded, color: Colors.white, size: 13),
                 ),
               ),
             ),
-          ),
-        ),
+        ],
       ),
     );
   }

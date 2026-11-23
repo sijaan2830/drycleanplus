@@ -74,6 +74,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
       '/onboarding',
       '/service_selection',
       '/service_items',
+      '/select_services',
       '/address_selection',
       '/add_address',
       '/time_slots',

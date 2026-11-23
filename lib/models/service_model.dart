@@ -11,6 +11,9 @@ class Service {
   final DateTime updatedAt;
   final List<Map<String, dynamic>>? items;
   final String? imageUrl;
+  final String? iconKey;
+  /// Card colours picked in the admin console, e.g. ['#FFA3A8', '#FF7B86'] (light, strong).
+  final List<String>? cardColors;
 
   const Service({
     required this.id,
@@ -23,6 +26,8 @@ class Service {
     required this.updatedAt,
     this.items,
     this.imageUrl,
+    this.iconKey,
+    this.cardColors,
   });
 
   factory Service.fromJson(Map<String, dynamic> json, String id) {
@@ -41,6 +46,8 @@ class Service {
           : DateTime.tryParse(json['updatedAt'] ?? '') ?? DateTime.now(),
       items: json['items'] != null ? List<Map<String, dynamic>>.from(json['items']) : null,
       imageUrl: json['imageUrl'],
+      iconKey: json['iconKey'],
+      cardColors: json['cardColors'] is List ? (json['cardColors'] as List).map((e) => '$e').toList() : null,
     );
   }
 
@@ -54,6 +61,8 @@ class Service {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'imageUrl': imageUrl,
+      'iconKey': iconKey,
+      'cardColors': cardColors,
     };
   }
 
@@ -67,6 +76,8 @@ class Service {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? imageUrl,
+    String? iconKey,
+    List<String>? cardColors,
   }) {
     return Service(
       id: id ?? this.id,
@@ -78,6 +89,8 @@ class Service {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       imageUrl: imageUrl ?? this.imageUrl,
+      iconKey: iconKey ?? this.iconKey,
+      cardColors: cardColors ?? this.cardColors,
     );
   }
 

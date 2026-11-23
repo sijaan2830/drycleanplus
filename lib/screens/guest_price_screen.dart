@@ -1,15 +1,15 @@
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../providers/service_provider.dart';
+import '../widgets/app_ui.dart';
 import '../widgets/dryclean_loader.dart';
+import '../widgets/service_price_card.dart';
 import '../widgets/skeleton_loading.dart';
-import 'onboarding_screen.dart';
 import 'guest_service_overview_screen.dart';
+import 'onboarding_screen.dart';
 
 class GuestPriceScreen extends StatefulWidget {
   const GuestPriceScreen({super.key});
@@ -19,413 +19,348 @@ class GuestPriceScreen extends StatefulWidget {
 }
 
 class _GuestPriceScreenState extends State<GuestPriceScreen> {
+  bool _navigating = false;
+
   @override
   void initState() {
     super.initState();
-    // Initialize services listener for real-time updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       Provider.of<ServiceProvider>(context, listen: false).initializeServicesListener();
     });
   }
 
-  // Get real-time services from ServiceProvider
-  List<Map<String, dynamic>> get _pricingData {
-    final serviceProvider = Provider.of<ServiceProvider>(context);
-    return serviceProvider.servicesAsMap;
+  Future<void> _createAccount() async {
+    if (_navigating) return;
+    _navigating = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const DrycleanLoader(autoDismiss: false),
+    );
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    await Navigator.of(context).push(smoothRoute(const OnboardingScreen()));
+    _navigating = false;
+  }
+
+  void _openGuestService(Map<String, dynamic> item) {
+    Navigator.of(context).push(
+      smoothRoute(
+        GuestServiceOverviewScreen(serviceType: item['title']),
+        name: '/guest_service_overview',
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBlue,
-      appBar: AppBar(
-        title: Text(
-          'Prices',
-          style: GoogleFonts.inter(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.white,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.primaryBlue,
-        foregroundColor: AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: AppColors.white, size: 30),
-          onPressed: () {
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/onboarding',
-              (Route<dynamic> route) => false,
-            );
-          },
-        ),
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-      ),
-      body: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light,
-        child: Column(
-          children: [
-            // Grid Content Area
-            Expanded(
-              child: Consumer<ServiceProvider>(
-                builder: (context, serviceProvider, child) {
-                  if (serviceProvider.isLoading) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: AppColors.primaryBlueDark,
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -140,
+                right: -150,
+                width: 360,
+                height: 360,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.07),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 640,
+                left: -230,
+                width: 420,
+                height: 420,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.05),
+                  ),
+                ),
+              ),
+              SafeArea(
+                bottom: false,
+                child: Consumer<ServiceProvider>(
+                  builder: (context, serviceProvider, _) {
+                    final services = serviceProvider.servicesAsMap;
+
+                    if (serviceProvider.isLoading) {
+                      return _buildSkeleton();
+                    }
+
+                    Map<String, dynamic>? featured;
+                    final List<Map<String, dynamic>> otherServices = [];
+
+                    for (final s in services) {
+                      final t = (s['title'] ?? '').toString().toLowerCase();
+                      if (featured == null && t.contains('dry clean')) {
+                        featured = s;
+                      } else {
+                        otherServices.add(s);
+                      }
+                    }
+
+                    featured ??= {
+                      'title': 'Dry Clean',
+                      'description': 'Expert dry cleaning for delicate fabrics and formal wear.',
+                      'tags': ['Dry cleaning', 'Ironing'],
+                      'price': '1.45',
+                      'priceLabel': 'From · per item',
+                    };
+
+                    final List<Map<String, dynamic>> col1 = [];
+                    final List<Map<String, dynamic>> col2 = [];
+
+                    for (int i = 0; i < otherServices.length; i++) {
+                      final s = otherServices[i];
+                      final t = (s['title'] ?? '').toString().toLowerCase();
+                      if (t.contains('duvet') || t.contains('bedding') || t.contains('laundry')) {
+                        col1.add(s);
+                      } else if (t.contains('household') || t.contains('wash')) {
+                        col2.add(s);
+                      } else {
+                        if (col1.length <= col2.length) {
+                          col1.add(s);
+                        } else {
+                          col2.add(s);
+                        }
+                      }
+                    }
+
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SkeletonGrid(itemCount: 6, crossAxisCount: 2, childAspectRatio: 0.75),
+                          _buildHeader(),
+                          const SizedBox(height: 16),
+
+                          // Guest sign-in banner
+                          _buildGuestPromptBanner(),
+                          const SizedBox(height: 8),
+
+                          FeaturedPriceCard(
+                            item: featured,
+                            onTap: () => _openGuestService(featured!),
+                          ),
+                          const SizedBox(height: 32),
+
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    for (int i = 0; i < col1.length; i++) ...[
+                                      if (i > 0) const SizedBox(height: 38),
+                                      StaggeredPriceCard(
+                                        item: col1[i],
+                                        onTap: () => _openGuestService(col1[i]),
+                                        index: i * 2,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 34),
+                                    for (int i = 0; i < col2.length; i++) ...[
+                                      if (i > 0) const SizedBox(height: 38),
+                                      StaggeredPriceCard(
+                                        item: col2[i],
+                                        onTap: () => _openGuestService(col2[i]),
+                                        index: i * 2 + 1,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     );
-                  }
-                  
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 850),
-                        child: Column(
-                          children: [
-                        // Grid for Cards
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 220,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.72,
-                          ),
-                          itemCount: _pricingData.length,
-                          itemBuilder: (context, index) {
-                            return _buildPricingCard(_pricingData[index]);
-                          },
-                        ),
-                        
-                        const SizedBox(height: 32),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Bottom Action Section (Dark Blue Footer)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.primaryBlueDark,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                  },
                 ),
-                border: const Border(top: BorderSide(color: AppColors.gold, width: 2)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Ready to continue?',
-                    style: GoogleFonts.inter(
-                      color: AppColors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Create Account Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        // Show loader
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => const DrycleanLoader(),
-                        );
-                        
-                        await Future.delayed(const Duration(seconds: 1));
-                        
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                          Navigator.of(context).push(
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) => OnboardingScreen(),
-                              transitionDuration: Duration.zero,
-                              reverseTransitionDuration: Duration.zero,
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.gold,
-                        foregroundColor: AppColors.primaryBlue,
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: AppColors.white, width: 1.5),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Create an account',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.arrow_forward,
-                            size: 20,
-                            color: AppColors.primaryBlue,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPricingCard(Map<String, dynamic> item) {
-    final tags = (item['tags'] as List<String>?) ?? [];
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          PageRouteBuilder(
-            settings: const RouteSettings(name: '/guest_service_overview'),
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                GuestServiceOverviewScreen(serviceType: item['title']),
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-          ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.primaryBlueDark,
-          borderRadius: BorderRadius.zero,
-          border: Border.all(
-            color: const Color(0xFFFFD600),
-            width: 2.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Body
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.zero,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _buildServiceIcon(item),
-                      const SizedBox(height: 6),
-                      Text(
-                        item['title'],
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      if (item['description'] != null &&
-                          item['description'].toString().isNotEmpty)
-                        Text(
-                          item['description'],
-                          style: GoogleFonts.inter(
-                            fontSize: 9.5,
-                            color: Colors.white.withOpacity(0.72),
-                            height: 1.3,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      const SizedBox(height: 6),
-                      if (tags.isNotEmpty)
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 3,
-                          runSpacing: 3,
-                          children: tags.map((tag) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFD600).withOpacity(0.10),
-                                borderRadius: BorderRadius.circular(5),
-                                border: Border.all(
-                                  color: const Color(0xFFFFD600).withOpacity(0.7),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                tag,
-                                style: GoogleFonts.inter(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFFFFD600),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Price footer
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.25),
-                borderRadius: BorderRadius.zero,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['priceLabel'] ?? '',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      color: Colors.white.withOpacity(0.55),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      if (item['unit'] == null || item['unit'] == 'item')
-                        Text(
-                          'from ',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: Colors.white.withOpacity(0.60),
-                          ),
-                        ),
-                      Text(
-                        '£${item['price']}',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFFFFD600),
-                        ),
-                      ),
-                      if (item['unit'] != null && item['unit'] != 'item')
-                        Text(
-                          ' / ${item['unit']}',
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: Colors.white.withOpacity(0.50),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildServiceIcon(Map<String, dynamic> item) {
-    print('=== DEBUG Guest Price Service Icon: ${item['title']} ===');
-    final imageUrl = item['imageUrl'] ?? '';
-    final iconPath = item['iconPath'];
-    
-    // Check if we have a base64 image from Firestore
-    if (imageUrl.isNotEmpty && imageUrl.startsWith('data:image/')) {
-        try {
-            return ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.memory(
-                    _base64ToImage(imageUrl),
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
-                ),
-            );
-        } catch (e) {
-            return _buildFallbackIcon();
-        }
-    }
-
-    if (iconPath != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.asset(
-          iconPath,
-          width: 44,
-          height: 44,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildFallbackIcon();
-          },
-        ),
-      );
-    }
-    
-    return _buildFallbackIcon();
-  }
-
-  Widget _buildFallbackIcon() {
+  Widget _buildGuestPromptBanner() {
     return Container(
-      width: 44,
-      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.gold.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.gold.withOpacity(0.3), width: 1),
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.20)),
       ),
-      child: const Icon(
-        Icons.local_laundry_service,
-        color: AppColors.gold,
-        size: 22,
+      child: Row(
+        children: [
+          const Icon(Icons.stars_rounded, color: Color(0xFFFFD25E), size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Browsing as Guest',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  'Sign in anytime to place orders & track delivery.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _createAccount,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC20E),
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Text(
+                'Sign In',
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFF0B1F5B),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Uint8List _base64ToImage(String base64String) {
-    final base64Data = base64String.split(',')[1];
-    return base64Decode(base64Data);
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Text(
+              'Prices',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 42,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -1.4,
+                height: 1.0,
+              ),
+            ),
+            Positioned(
+              left: 0,
+              bottom: -11,
+              width: 130,
+              height: 12,
+              child: const CustomPaint(
+                painter: SquigglyUnderlinePainter(
+                  color: Color(0xFFFFD25E),
+                  strokeWidth: 4.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 300),
+          child: Text(
+            'Clear prices for every service. Browse our rates as a guest.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFFE8F0FF),
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 24),
+          const SkeletonLoading(
+            height: 230,
+            borderRadius: 32,
+          ),
+          const SizedBox(height: 32),
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    SkeletonLoading(height: 220, borderRadius: 28),
+                    SizedBox(height: 38),
+                    SkeletonLoading(height: 220, borderRadius: 28),
+                  ],
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  children: [
+                    SizedBox(height: 34),
+                    SkeletonLoading(height: 220, borderRadius: 28),
+                    SizedBox(height: 38),
+                    SkeletonLoading(height: 220, borderRadius: 28),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

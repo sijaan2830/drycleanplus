@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/booking_models.dart' as models;
-import '../models/services_data.dart';
 import '../services/firestore_service.dart';
 
 class BookingProvider extends ChangeNotifier {
@@ -12,6 +11,9 @@ class BookingProvider extends ChangeNotifier {
   List<models.Order> _orders = [];
   bool _isLoading = false;
   String? _selectedService;
+  models.Order? _lastPlacedOrder;
+  /// The order created most recently on this phone (shown on the confirmation page).
+  models.Order? get lastPlacedOrder => _lastPlacedOrder;
   
   // User profile data
   models.Address? _userDefaultAddress;
@@ -115,21 +117,13 @@ class BookingProvider extends ChangeNotifier {
   };
 
   static const List<String> _collectionTimeSlots = [
-    '8:00 AM - 10:00 AM',
-    '10:00 AM - 12:00 PM',
-    '12:00 PM - 2:00 PM',
-    '2:00 PM - 4:00 PM',
-    '4:00 PM - 6:00 PM',
-    '6:00 PM - 8:00 PM',
+    '12:00 PM - 5:00 PM',
+    '6:00 PM - 10:00 PM',
   ];
 
   static const List<String> _deliveryTimeSlots = [
-    '8:00 AM - 10:00 AM',
-    '10:00 AM - 12:00 PM',
-    '12:00 PM - 2:00 PM',
-    '2:00 PM - 4:00 PM',
-    '4:00 PM - 6:00 PM',
-    '6:00 PM - 8:00 PM',
+    '12:00 PM - 5:00 PM',
+    '6:00 PM - 10:00 PM',
   ];
 
   List<models.ServiceItem> getServiceItems(String serviceType) {
@@ -207,10 +201,16 @@ class BookingProvider extends ChangeNotifier {
     // Listen to user orders
     _ordersSubscription = _firestoreService.getOrdersStream().listen(
       (snapshot) {
-        _orders = snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return models.Order.fromJson({...data, 'id': doc.id});
-        }).toList();
+        final parsed = <models.Order>[];
+        for (final doc in snapshot.docs) {
+          try {
+            final data = doc.data() as Map<String, dynamic>;
+            parsed.add(models.Order.fromJson({...data, 'id': doc.id}));
+          } catch (e) {
+            print('Skipping order ${doc.id} that could not be read: $e');
+          }
+        }
+        _orders = parsed;
         
         // Remove duplicates by ID
         final uniqueOrders = <String, models.Order>{};
@@ -413,6 +413,21 @@ class BookingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setServiceItemQuantity(models.ServiceItem item, int quantity) {
+    final updatedItems = Map<String, models.ServiceItem>.from(_bookingData.selectedItems);
+    updatedItems.removeWhere((k, v) => v.category == item.category && v.itemType == item.itemType);
+    if (quantity > 0) {
+      for (int i = 0; i < quantity; i++) {
+        updatedItems['${item.uniqueKey}_$i'] = item;
+      }
+    }
+    _bookingData = _bookingData.copyWith(
+      selectedItems: updatedItems,
+      totalPrice: _bookingData.subtotal,
+    );
+    notifyListeners();
+  }
+
   void removeServiceItem(String itemKey) {
     final updatedItems = Map<String, models.ServiceItem>.from(_bookingData.selectedItems);
     updatedItems.remove(itemKey);
@@ -514,6 +529,33 @@ class BookingProvider extends ChangeNotifier {
     );
   }
 
+  // ---- Laundryheap-style booking: pick services, the facility counts the bag ----
+  void toggleBagService(String service) {
+    final list = List<String>.from(_bookingData.selectedServices);
+    list.contains(service) ? list.remove(service) : list.add(service);
+    final req = Map<String, String>.from(_bookingData.serviceRequests);
+    if (!list.contains(service)) req.remove(service);
+    _bookingData = _bookingData.copyWith(selectedServices: list, serviceRequests: req);
+    notifyListeners();
+  }
+
+  void setServiceRequest(String service, String text) {
+    final req = Map<String, String>.from(_bookingData.serviceRequests);
+    text.trim().isEmpty ? req.remove(service) : req[service] = text.trim();
+    _bookingData = _bookingData.copyWith(serviceRequests: req);
+    notifyListeners();
+  }
+
+  void setTip(double amount) {
+    _bookingData = _bookingData.copyWith(tipAmount: amount);
+    notifyListeners();
+  }
+
+  void setRepeatOrder(bool value) {
+    _bookingData = _bookingData.copyWith(repeatOrder: value);
+    notifyListeners();
+  }
+
   void setInstructions(String instructions) {
     _bookingData = _bookingData.copyWith(instructions: instructions);
     notifyListeners();
@@ -563,33 +605,52 @@ class BookingProvider extends ChangeNotifier {
 
   // ==================== ORDER OPERATIONS ====================
 
-  /// Create order and save to Firestore
-  Future<models.Order> createOrder() async {
+  bool _creatingOrder = false;
+
+  /// Create order and save to Firestore.
+  ///
+  /// [paymentMethod]: 'sumup' (paid online via SumUp link) or 'cod'
+  /// (pay on delivery). [paymentStatus]: 'paid_unverified' | 'pay_on_delivery'.
+  Future<models.Order> createOrder({
+    String paymentMethod = 'cod',
+    String paymentStatus = 'pay_on_delivery',
+  }) async {
+    // Guard against double taps / duplicate success callbacks.
+    if (_creatingOrder) {
+      throw Exception('Order is already being created');
+    }
+    _creatingOrder = true;
     setLoading(true);
-    
+
     try {
       final orderId = await _generateOrderId();
       final isPrepaidPack = _selectedService == 'Prepaid Pack';
       final prepaidPackName = _bookingData.prepaidPackName ?? '';
       
-      // Calculate total amount with tax and fees
-      final basePrice = _bookingData.subtotal;
-      final discSubtotal = _bookingData.discountedSubtotal;
-      const serviceFee = 2.99;
-      const deliveryFee = 0.0;
-      const taxRate = 0.20; // 20% tax
-      final tax = (discSubtotal + serviceFee + deliveryFee) * taxRate;
-      final totalAmount = discSubtotal + serviceFee + deliveryFee + tax;
-      
+      // Ensure selectedServices is populated from _selectedService if items were not individually added
+      List<String> servicesList = List<String>.from(_bookingData.selectedServices);
+      if (servicesList.isEmpty && _selectedService != null && _selectedService!.isNotEmpty && _selectedService != 'All Services') {
+        servicesList.add(_selectedService!);
+      }
+
+      // Total = items - discount + service fee + delivery fee (no tax).
+      final orderData = _bookingData.copyWith(
+        paymentMethod: paymentMethod,
+        paymentStatus: paymentStatus,
+        selectedServices: servicesList,
+      );
+      final totalAmount = orderData.totalAmount;
+
       // Create order with temporary ID - will be updated with Firestore ID
       final order = models.Order(
         id: '', // Will be set by Firestore
         orderId: orderId,
-        bookingData: _bookingData,
-        type: isPrepaidPack ? 'prepaid_pack' : 'regular',
+        bookingData: orderData,
+        type: isPrepaidPack ? 'prepaid_pack' : (orderData.selectedItems.isEmpty ? 'quick_bag' : 'regular'),
         status: 'pending',
         createdAt: DateTime.now(),
-        transactionAmount: totalAmount, // Include total amount with tax and fees
+        transactionAmount: totalAmount,
+        paymentMethod: paymentMethod,
       );
       
       final usedDiscountCode = _bookingData.discountCode;
@@ -632,12 +693,15 @@ class BookingProvider extends ChangeNotifier {
         _bookingData = models.BookingData();
         _selectedService = null;
         
-        // Return order with Firestore ID
-        return order.copyWith(id: firestoreOrderId);
+        // Return order with Firestore ID (and remember it for the confirmation page)
+        _lastPlacedOrder = order.copyWith(id: firestoreOrderId);
+        notifyListeners();
+        return _lastPlacedOrder!;
       } else {
         throw Exception('Failed to create order in Firestore');
       }
     } finally {
+      _creatingOrder = false;
       setLoading(false);
     }
   }
@@ -703,6 +767,11 @@ class BookingProvider extends ChangeNotifier {
   /// Helper method to get slot number from start time
   int _getSlotNumber(String startTime) {
     final timeMap = {
+      '12:00': 1,
+      '12:00 PM': 1,
+      '18:00': 2,
+      '6:00 PM': 2,
+      '06:00 PM': 2,
       '08:00': 1,
       '09:00': 2,
       '10:00': 3,

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/booking_provider.dart';
 import '../../models/booking_models.dart';
+import '../../widgets/app_ui.dart';
 
 class ServiceItemsScreen extends StatefulWidget {
   const ServiceItemsScreen({super.key});
@@ -14,145 +15,153 @@ class ServiceItemsScreen extends StatefulWidget {
 }
 
 class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
-  Map<String, int> _itemQuantities = {};
+  final Map<String, int> _itemQuantities = {};
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.primaryBlueDark,
       appBar: AppBar(
         title: Text(
           'Select Items',
-          style: GoogleFonts.inter(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 20,
             fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
         ),
-        backgroundColor: AppColors.white,
-        foregroundColor: AppColors.black,
+        backgroundColor: AppColors.primaryBlueDark,
+        foregroundColor: Colors.white,
         elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
-      body: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark,
-        child: Consumer<BookingProvider>(
-          builder: (context, provider, child) {
-            final selectedService = provider.selectedService;
-            final serviceItems = selectedService != null
-                ? provider.getServiceItems(selectedService)
-                : <ServiceItem>[];
+      body: AppBackground(
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light,
+          child: Consumer<BookingProvider>(
+            builder: (context, provider, child) {
+              final selectedService = provider.selectedService;
+              final serviceItems = selectedService != null
+                  ? provider.getServiceItems(selectedService)
+                  : <ServiceItem>[];
 
-            return Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getServiceTitle(selectedService),
-                        style: GoogleFonts.inter(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Select items and quantities for your order',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Items list
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    itemCount: serviceItems.length,
-                    itemBuilder: (context, index) {
-                      final item = serviceItems[index];
-                      final quantity = _itemQuantities[item.uniqueKey] ?? 0;
-                      
-                      return _buildItemCard(item, quantity);
-                    },
-                  ),
-                ),
-                // Bottom section with total and continue button
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Selected Items: ${_getTotalItems()}',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black,
-                            ),
-                          ),
-                          Text(
-                            'Total: £${_getTotalPrice().toStringAsFixed(2)}',
-                            style: GoogleFonts.inter(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0066FF),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _getTotalItems() > 0
-                              ? () {
-                                  _saveSelectedItems(context);
-                                  Navigator.of(context).pushNamed('/address_selection');
-                                }
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryBlue,
-                            foregroundColor: AppColors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: Text(
-                            'Continue to Address',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+              return Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _getServiceTitle(selectedService),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          'Select items and quantities for your order',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14.5,
+                            color: Colors.white.withOpacity(0.82),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
+                  // Items list
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: serviceItems.length,
+                      itemBuilder: (context, index) {
+                        final item = serviceItems[index];
+                        final quantity = _itemQuantities[item.uniqueKey] ?? 0;
+
+                        return _buildItemCard(item, quantity);
+                      },
+                    ),
+                  ),
+                  // Bottom section with total and continue button
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryBlueDeep,
+                      border: Border(
+                        top: BorderSide(color: Colors.white.withOpacity(0.18), width: 1.0),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 16,
+                          offset: const Offset(0, -4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Selected Items: ${_getTotalItems()}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              'Total: £${_getTotalPrice().toStringAsFixed(2)}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.gold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _getTotalItems() > 0
+                                ? () {
+                                    _saveSelectedItems(context);
+                                    Navigator.of(context).pushNamed('/address_selection');
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.white,
+                              foregroundColor: AppColors.primaryBlueDark,
+                              disabledBackgroundColor: Colors.white.withOpacity(0.2),
+                              disabledForegroundColor: Colors.white.withOpacity(0.4),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Continue to Address',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -160,12 +169,12 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
 
   Widget _buildItemCard(ServiceItem item, int quantity) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.goldBorder),
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.22)),
       ),
       child: Row(
         children: [
@@ -175,19 +184,19 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
               children: [
                 Text(
                   item.itemType,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   item.price,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF0066FF),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.gold,
                   ),
                 ),
               ],
@@ -196,9 +205,9 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
           // Quantity selector
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.goldBorder),
+              color: Colors.white.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withOpacity(0.25)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -215,17 +224,17 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
                           });
                         }
                       : null,
-                  icon: const Icon(Icons.remove, size: 20),
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  icon: const Icon(Icons.remove, size: 18, color: Colors.white),
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 ),
-                Container(
-                  width: 40,
-                  alignment: Alignment.center,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Text(
-                    quantity.toString(),
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    '$quantity',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -235,8 +244,8 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
                       _itemQuantities[item.uniqueKey] = quantity + 1;
                     });
                   },
-                  icon: const Icon(Icons.add, size: 20),
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 ),
               ],
             ),
@@ -247,18 +256,8 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
   }
 
   String _getServiceTitle(String? service) {
-    switch (service) {
-      case 'Dry Clean':
-        return 'Dry Clean Service';
-      case 'Duvets & Bedding':
-        return 'Duvets & Bedding Service';
-      case 'Household Items':
-        return 'Household Items Service';
-      case 'Laundry & Ironing':
-        return 'Laundry & Ironing Service';
-      default:
-        return 'Select Items';
-    }
+    if (service == null || service.isEmpty) return 'Service';
+    return service;
   }
 
   int _getTotalItems() {
@@ -273,17 +272,14 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
     final serviceItems = provider.getServiceItems(selectedService);
     double total = 0.0;
 
-    _itemQuantities.forEach((key, quantity) {
-      final item = serviceItems.firstWhere(
-        (item) => item.uniqueKey == key,
-        orElse: () => ServiceItem(
-          category: '',
-          itemType: '',
-          price: '0.00',
-        ),
-      );
-      total += item.numericPrice * quantity;
-    });
+    for (final item in serviceItems) {
+      final quantity = _itemQuantities[item.uniqueKey] ?? 0;
+      if (quantity > 0) {
+        final priceString = item.price.replaceAll('£', '');
+        final price = double.tryParse(priceString) ?? 0.0;
+        total += price * quantity;
+      }
+    }
 
     return total;
   }
@@ -294,27 +290,11 @@ class _ServiceItemsScreenState extends State<ServiceItemsScreen> {
     if (selectedService == null) return;
 
     final serviceItems = provider.getServiceItems(selectedService);
-    final Map<String, ServiceItem> selectedItems = {};
-
-    _itemQuantities.forEach((key, quantity) {
+    for (final item in serviceItems) {
+      final quantity = _itemQuantities[item.uniqueKey] ?? 0;
       if (quantity > 0) {
-        final item = serviceItems.firstWhere(
-          (item) => item.uniqueKey == key,
-        );
-        
-        // Add the item multiple times based on quantity
-        for (int i = 0; i < quantity; i++) {
-          final uniqueKeyWithQuantity = '${item.uniqueKey}_$i';
-          selectedItems[uniqueKeyWithQuantity] = item;
-        }
+        provider.setServiceItemQuantity(item, quantity);
       }
-    });
-
-    // Update provider with selected items
-    final updatedBookingData = provider.bookingData.copyWith(
-      selectedItems: selectedItems,
-      totalPrice: _getTotalPrice(),
-    );
-    provider.updateBookingData(updatedBookingData);
+    }
   }
 }

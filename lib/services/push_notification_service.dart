@@ -5,6 +5,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../screens/track_driver_screen.dart';
+import '../utils/order_status.dart';
 import '../utils/route_helpers.dart'; // To access global navigatorKey
 import '../models/booking_models.dart' as models;
 import '../screens/track_order_screen.dart';
@@ -163,6 +165,9 @@ class PushNotificationService {
     }
   }
 
+  /// Opens an order's tracking page (used by the in-app notification inbox).
+  static void openOrder(String orderDocId) => _navigateToOrderTracking(orderDocId);
+
   static void _navigateToOrderTracking(String orderId) async {
     final context = navigatorKey.currentContext;
     if (context == null) return;
@@ -186,7 +191,8 @@ class PushNotificationService {
         final order = models.Order.fromJson({...doc.data()!, 'id': doc.id});
         navigatorKey.currentState?.push(
           MaterialPageRoute(
-            builder: (context) => TrackOrderScreen(order: order),
+            // driver on the way / outside → straight to the live map
+            builder: (context) => isLiveOrderStatus(order.status) ? TrackDriverScreen(order: order) : TrackOrderScreen(order: order),
           ),
         );
       } else {

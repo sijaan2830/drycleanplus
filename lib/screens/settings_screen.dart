@@ -43,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (confirmed == true && mounted) {
+      RouteNotifier().startLogout();
+      persistentFooterAppState?.resetToHomeTab();
       await _authService.signOut();
       await GuestHelper.setGuestStatus(false);
       
@@ -75,6 +77,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (confirmed == true && mounted) {
+      RouteNotifier().startLogout();
+      persistentFooterAppState?.resetToHomeTab();
       try {
         // Delete user from Firebase
         if (_authService.currentUser != null) {

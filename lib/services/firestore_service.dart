@@ -416,15 +416,10 @@ class FirestoreService {
           {'id': 'sunday', 'day_name': 'Sunday', 'order': 7, 'isOpen': true},
         ];
         
-        // Define 7 slots per day with open status
+        // Define 2 wide slots per day (12-5 and 6-10) with open status
         final defaultSlots = [
-          {'start': '08:00', 'end': '09:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '09:00', 'end': '10:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '10:00', 'end': '11:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '11:00', 'end': '12:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '14:00', 'end': '15:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '15:00', 'end': '16:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '16:00', 'end': '17:00', 'max': 5, 'current': 0, 'isOpen': true},
+          {'start': '12:00', 'end': '17:00', 'max': 20, 'current': 0, 'isOpen': true},
+          {'start': '18:00', 'end': '22:00', 'max': 20, 'current': 0, 'isOpen': true},
         ];
         
         // Create days and slots
@@ -480,15 +475,10 @@ class FirestoreService {
           {'id': 'sunday', 'day_name': 'Sunday', 'order': 7, 'isOpen': true},
         ];
         
-        // Define 7 slots per day with open status
+        // Define 2 wide slots per day (12-5 and 6-10) with open status
         final defaultSlots = [
-          {'start': '08:00', 'end': '09:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '09:00', 'end': '10:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '10:00', 'end': '11:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '11:00', 'end': '12:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '14:00', 'end': '15:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '15:00', 'end': '16:00', 'max': 5, 'current': 0, 'isOpen': true},
-          {'start': '16:00', 'end': '17:00', 'max': 5, 'current': 0, 'isOpen': true},
+          {'start': '12:00', 'end': '17:00', 'max': 20, 'current': 0, 'isOpen': true},
+          {'start': '18:00', 'end': '22:00', 'max': 20, 'current': 0, 'isOpen': true},
         ];
         
         // Create days and slots
@@ -880,6 +870,13 @@ class FirestoreService {
     return await _prepaidPacksCollection
         .where('isActive', isEqualTo: true)
         .get();
+  }
+
+  /// Stream of active prepaid packs for real-time sync with Admin Panel
+  Stream<QuerySnapshot> getPrepaidPacksStream() {
+    return _prepaidPacksCollection
+        .where('isActive', isEqualTo: true)
+        .snapshots();
   }
 
   // ==================== ADDRESSES ====================
