@@ -86,176 +86,191 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<BookingProvider>(
-      builder: (context, provider, _) {
-        _currentOrder = provider.orders.firstWhere(
-          (o) => o.id == widget.order.id,
-          orElse: () => _currentOrder,
-        );
-        final order = _currentOrder;
-        final info = orderStatusInfo(order.status);
-        final delivered = isOrderDelivered(order.status);
-        final cancelled = info.step == -1;
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('orders').doc(widget.order.id).snapshots(),
+      builder: (context, docSnap) {
+        if (docSnap.hasData && docSnap.data != null && docSnap.data!.exists) {
+          try {
+            _currentOrder = models.Order.fromJson({...docSnap.data!.data()!, 'id': docSnap.data!.id});
+          } catch (_) {}
+        }
+        return Consumer<BookingProvider>(
+          builder: (context, provider, _) {
+            // Also update from provider if available
+            final pOrder = provider.orders.where((o) => o.id == widget.order.id).firstOrNull;
+            if (pOrder != null && docSnap.data == null) {
+              _currentOrder = pOrder;
+            }
+            final order = _currentOrder;
+            final info = orderStatusInfo(order.status);
+            final delivered = isOrderDelivered(order.status);
+            final cancelled = info.step == -1 || normalizeOrderStatus(order.status) == 'cancelled';
+            final isEnRoute = isLiveOrderStatus(order.status);
 
-        return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _safeBack();
-          },
-          child: Scaffold(
-            body: Container(
-              decoration: const BoxDecoration(
-                gradient: AppColors.bgGradient,
-              ),
-              child: Stack(
-                children: [
-                  // Ambient background decorative circles
-                  Positioned(
-                    top: -140,
-                    right: -150,
-                    child: Container(
-                      width: 360,
-                      height: 360,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.07),
-                      ),
-                    ),
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) _safeBack();
+              },
+              child: Scaffold(
+                body: Container(
+                  decoration: const BoxDecoration(
+                    gradient: AppColors.bgGradient,
                   ),
-                  Positioned(
-                    top: 760,
-                    left: -230,
-                    child: Container(
-                      width: 420,
-                      height: 420,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.05),
+                  child: Stack(
+                    children: [
+                      // Ambient background decorative circles
+                      Positioned(
+                        top: -140,
+                        right: -150,
+                        child: Container(
+                          width: 360,
+                          height: 360,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.07),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-
-                  // Main Content
-                  SafeArea(
-                    child: Column(
-                      children: [
-                        // Header Bar
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // 44x44 glass back button
-                              GestureDetector(
-                                onTap: _safeBack,
-                                child: Container(
-                                  width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                                ),
-                              ),
-                            ),
-
-                            // Centered Title
-                            Text(
-                              'Track order',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-
-                            // 44x44 glass refresh button with spin
-                            GestureDetector(
-                              onTap: () => _handleRefresh(provider),
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: RotationTransition(
-                                  turns: _refreshAnimController,
-                                  child: const Center(
-                                    child: Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                      Positioned(
+                        top: 760,
+                        left: -230,
+                        child: Container(
+                          width: 420,
+                          height: 420,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.05),
+                          ),
                         ),
                       ),
 
-                      // List of Cards
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                      // Main Content
+                      SafeArea(
+                        child: Column(
                           children: [
-                            Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 480),
-                                child: Column(
-                                  children: [
-                                    // 1. Order Header Card
-                                    _buildOrderHeaderCard(order, info, delivered, cancelled),
-                                    const SizedBox(height: 30),
+                            // Header Bar
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // 44x44 glass back button
+                                  GestureDetector(
+                                    onTap: _safeBack,
+                                    child: Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withValues(alpha: 0.18),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.22),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                                      ),
+                                    ),
+                                  ),
 
-                                    // Live driver map — appears by itself while the driver is on the way
-                                    LiveTrackingCard(order: order),
+                                  // Centered Title
+                                  Text(
+                                    'Track order',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
 
-                                    // Direct driver tracking card for customers to follow driver anytime
-                                    if (!isLiveOrderStatus(order.status) && !delivered && !cancelled)
-                                      _buildDriverTrackingActionCard(order),
+                                  // 44x44 glass refresh button with spin
+                                  GestureDetector(
+                                    onTap: () => _handleRefresh(provider),
+                                    child: Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withValues(alpha: 0.18),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.22),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: RotationTransition(
+                                        turns: _refreshAnimController,
+                                        child: const Center(
+                                          child: Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
-                                    // Facility found extras / damage → customer approves the new total
-                                    if (normalizeOrderStatus(order.status) == 'awaiting_approval') ApprovalCard(order: order),
+                            // List of Cards
+                            Expanded(
+                              child: ListView(
+                                padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                                children: [
+                                  Center(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 480),
+                                      child: Column(
+                                        children: [
+                                          // 1. Order Header Card
+                                          _buildOrderHeaderCard(order, info, delivered, cancelled),
+                                          const SizedBox(height: 30),
 
-                                    // 2. Order Journey Card
-                                    if (cancelled)
-                                      _buildCancelledCard()
-                                    else
-                                      _buildOrderJourneyCard(order, info, delivered),
-                                    const SizedBox(height: 30),
+                                          // If CANCELLED: Map and all active cards are completely deactivated / dead
+                                          if (cancelled) ...[
+                                            _buildCancelledCard(),
+                                            const SizedBox(height: 30),
+                                            _buildNeedHelpButton(context),
+                                          ] else ...[
+                                            // Live driver map ONLY when driver is actually ON THE WAY (en route / arrived)
+                                            if (isEnRoute && !delivered)
+                                              LiveTrackingCard(order: order),
 
-                                    // 3. Collection & Delivery Card
-                                    _buildCollectionDeliveryCard(order),
-                                    const SizedBox(height: 30),
+                                            // Facility found extras / damage / itemized count → customer approves the new total
+                                            if (normalizeOrderStatus(order.status) == 'awaiting_approval')
+                                              ApprovalCard(order: order),
 
-                                    // 4. Items Card
-                                    _buildItemsCard(order),
-                                    const SizedBox(height: 30),
+                                            // 2. Order Journey Card
+                                            _buildOrderJourneyCard(order, info, delivered),
+                                            const SizedBox(height: 30),
 
-                                    // 5. Payment Card
-                                    _buildPaymentCard(order, delivered),
-                                    const SizedBox(height: 24),
+                                            // 3. Collection & Delivery Card
+                                            _buildCollectionDeliveryCard(order),
+                                            const SizedBox(height: 30),
 
-                                    // 6. Need Help Button
-                                    _buildNeedHelpButton(context),
-                                    const SizedBox(height: 16),
+                                            // 4. Items Card
+                                            _buildItemsCard(order),
+                                            const SizedBox(height: 30),
 
-                                    // 7. Cancel Order Button (active non-delivered, non-cancelled orders)
-                                    if (!delivered && !cancelled) ...[
-                                      _buildCancelOrderButton(order),
-                                      const SizedBox(height: 16),
-                                    ],
-                                  ],
-                                ),
+                                            // 5. Payment Card
+                                            _buildPaymentCard(order, delivered),
+                                            const SizedBox(height: 24),
+
+                                            // 6. Need Help Button
+                                            _buildNeedHelpButton(context),
+                                            const SizedBox(height: 16),
+
+                                            // 7. Cancel Order Button (active non-delivered, non-cancelled orders)
+                                            if (!delivered) ...[
+                                              _buildCancelOrderButton(order),
+                                              const SizedBox(height: 16),
+                                            ],
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -264,10 +279,10 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ));
+              ),
+            );
+          },
+        );
       },
     );
   }

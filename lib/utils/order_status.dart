@@ -84,6 +84,8 @@ OrderStatusInfo orderStatusInfo(String status) {
       return const OrderStatusInfo(label: 'Checking items', description: 'We’re counting and checking every item', color: cleaning, icon: Icons.fact_check_rounded, step: 2);
     case 'awaiting_approval':
       return const OrderStatusInfo(label: 'Needs your OK', description: 'Please approve the updated total', color: Color(0xFFFFD7A8), icon: Icons.pending_actions_rounded, step: 2);
+    case 'approved':
+      return const OrderStatusInfo(label: 'Approved', description: 'Total approved — entering cleaning queue', color: cleaning, icon: Icons.thumb_up_alt_rounded, step: 2);
     case 'cleaning':
       return const OrderStatusInfo(label: 'Cleaning', description: 'Your items are being cleaned', color: cleaning, icon: Icons.local_laundry_service_rounded, step: 2);
     case 'quality_check':

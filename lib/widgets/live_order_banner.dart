@@ -67,49 +67,180 @@ class _OrdersState extends State<_Orders> {
         final info = orderStatusInfo(status);
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            elevation: 0,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(22),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => approval ? TrackOrderScreen(order: order) : TrackDriverScreen(order: order))),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: const [BoxShadow(color: Color(0x40061A52), blurRadius: 26, offset: Offset(0, 12), spreadRadius: -12)],
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
-                child: Row(children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: approval ? const Color(0xFFFFF1DC) : AppColors.skyTint,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Icon(info.icon, color: approval ? const Color(0xFFB45309) : AppColors.primaryBlue, size: 26),
+                BoxShadow(
+                  color: (approval
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFF2563EB))
+                      .withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(24),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => approval
+                        ? TrackOrderScreen(order: order)
+                        : TrackDriverScreen(order: order),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        if (!approval) ...[
-                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
-                          const SizedBox(width: 6),
-                          Text(arrived ? 'OUTSIDE NOW' : 'LIVE', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .8, color: AppColors.success)),
-                          const SizedBox(width: 8),
-                        ],
-                        Text('#${order.orderId}', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.muted)),
-                      ]),
-                      const SizedBox(height: 2),
-                      Text(info.label, style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.ink)),
-                      Text(approval ? 'Tap to review and approve' : 'Tap to see your driver on the map',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.muted)),
-                    ]),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: approval
+                                ? const [Color(0xFFFEF3C7), Color(0xFFFDE68A)]
+                                : const [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: approval
+                                ? const Color(0xFFFCD34D)
+                                : const Color(0xFFBFDBFE),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Icon(
+                          info.icon,
+                          color: approval
+                              ? const Color(0xFFB45309)
+                              : const Color(0xFF1D4ED8),
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: approval
+                                        ? const Color(0xFFFEF3C7)
+                                        : (arrived
+                                            ? const Color(0xFFDCFCE7)
+                                            : const Color(0xFFEFF6FF)),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: approval
+                                          ? const Color(0xFFF59E0B)
+                                          : (arrived
+                                              ? const Color(0xFF22C55E)
+                                              : const Color(0xFF3B82F6)),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: approval
+                                              ? const Color(0xFFD97706)
+                                              : (arrived
+                                                  ? const Color(0xFF16A34A)
+                                                  : const Color(0xFF2563EB)),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        approval
+                                            ? 'ACTION REQUIRED'
+                                            : (arrived ? 'OUTSIDE NOW' : 'EN ROUTE'),
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.6,
+                                          color: approval
+                                              ? const Color(0xFFB45309)
+                                              : (arrived
+                                                  ? const Color(0xFF15803D)
+                                                  : const Color(0xFF1D4ED8)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '#${order.orderId}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              info.label,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              approval
+                                  ? 'Tap to review and approve counted items'
+                                  : 'Tap to see live van tracking on map',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Color(0xFF475569),
+                          size: 22,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                ]),
+                ),
               ),
             ),
           ),

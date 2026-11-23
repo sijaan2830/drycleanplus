@@ -48,13 +48,20 @@ class _LiveTrackingCardState extends State<LiveTrackingCard> {
   Widget build(BuildContext context) {
     final order = widget.order;
     if (order.orderId.isEmpty) return const SizedBox.shrink();
+    final live = isLiveOrderStatus(order.status);
+    final cancelled = normalizeOrderStatus(order.status) == 'cancelled';
+    final delivered = isOrderDelivered(order.status);
+
+    // Live driver card ONLY appears when driver is actively on the way (en route / arrived)
+    if (!live || cancelled || delivered) {
+      return const SizedBox.shrink();
+    }
+
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _streamFor(order.orderId),
       builder: (context, snap) {
         final data = snap.data?.data();
-        final live = isLiveOrderStatus(order.status);
         if (data == null) {
-          if (!live) return const SizedBox.shrink();
           return const Padding(padding: EdgeInsets.only(bottom: 30), child: _WaitingCard());
         }
         return Padding(
@@ -486,73 +493,388 @@ class _ApprovalCardState extends State<ApprovalCard> {
   @override
   Widget build(BuildContext context) => StreamBuilder<Map<String, dynamic>?>(
         stream: _doc,
-        builder: (context, snap) => _card(context, (snap.data?['approval'] as Map?)?.cast<String, dynamic>() ?? const {}),
+        builder: (context, snap) => _card(context, snap.data ?? const {}),
       );
 
-  Widget _card(BuildContext context, Map<String, dynamic> a) {
-    final amount = (a['amount'] as num?)?.toDouble();
-    final prev = (a['previousAmount'] as num?)?.toDouble();
-    final extras = (a['extras'] as List?)?.whereType<Map>().toList() ?? const [];
-    final damages = (a['damageCount'] as num?)?.toInt() ?? 0;
+  Widget _card(BuildContext context, Map<String, dynamic> docData) {
+    final a = (docData['approval'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final amount = (a['amount'] as num?)?.toDouble() ??
+        (docData['transactionAmount'] as num?)?.toDouble() ??
+        (docData['totalAmount'] as num?)?.toDouble();
+    final prev = (a['previousAmount'] as num?)?.toDouble() ??
+        (docData['pricing']?['estimated'] as num?)?.toDouble();
+    final note = a['notes']?.toString() ?? a['note']?.toString() ?? '';
+
+    // Extract counted items
+    final List<Map<String, dynamic>> itemsList = [];
+    final rawItems = docData['items'] ??
+        docData['selectedItems'] ??
+        docData['bookingData']?['selectedItems'];
+
+    if (rawItems is List) {
+      for (final itm in rawItems) {
+        if (itm is Map) {
+          itemsList.add(Map<String, dynamic>.from(itm));
+        }
+      }
+    } else if (rawItems is Map) {
+      rawItems.forEach((k, v) {
+        if (v is Map) {
+          final q = v['quantity'] ?? v['qty'] ?? 1;
+          final p = (v['price'] is num)
+              ? (v['price'] as num).toDouble()
+              : (double.tryParse(v['price']?.toString().replaceAll('£', '') ?? '') ?? 0.0);
+          itemsList.add({
+            'name': k.toString(),
+            'qty': q,
+            'unitPrice': p,
+            'total': p * (q as num),
+          });
+        }
+      });
+    }
+
+    // Fallback to order items if still empty
+    if (itemsList.isEmpty && widget.order.bookingData.selectedItems.isNotEmpty) {
+      widget.order.bookingData.selectedItems.forEach((k, v) {
+        final p = v.numericPrice;
+        itemsList.add({
+          'name': v.itemType.isNotEmpty ? v.itemType : k,
+          'qty': 1,
+          'unitPrice': p,
+          'total': p,
+        });
+      });
+    }
+
+    final delta = (amount != null && prev != null) ? (amount - prev) : 0.0;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 30),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26), boxShadow: _shadow, border: Border.all(color: const Color(0xFFFFC98A), width: 1.5)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFFFFF1DC), borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.pending_actions_rounded, color: Color(0xFFB45309)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFFFB020), width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33B45309),
+            blurRadius: 26,
+            offset: Offset(0, 12),
           ),
-          const SizedBox(width: 12),
-          Expanded(child: Text('Please approve before we clean', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink))),
-        ]),
-        const SizedBox(height: 12),
-        Text(
-          [
-            if (extras.isNotEmpty) 'We found ${extras.length} extra item${extras.length == 1 ? '' : 's'} in your bag',
-            if (damages > 0) '$damages item${damages == 1 ? '' : 's'} with stains or damage were photographed',
-          ].join(', and ').replaceFirstMapped(RegExp(r'^.'), (m) => m[0]!.toUpperCase()) + '.',
-          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.muted, height: 1.45),
-        ),
-        for (final e in extras)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text('• ${e['qty'] ?? 1} × ${e['name'] ?? 'Item'}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.ink)),
-          ),
-        if (amount != null) ...[
-          const SizedBox(height: 12),
-          Row(children: [
-            Text('New total', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.muted)),
-            const Spacer(),
-            if (prev != null && prev != amount)
-              Text('£${prev.toStringAsFixed(2)}  ', style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.muted, decoration: TextDecoration.lineThrough)),
-            Text('£${amount.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.ink)),
-          ]),
         ],
-        const SizedBox(height: 14),
-        Row(children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => launchUrl(Uri.parse('tel:$kSupportPhone')),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-              child: const Text('Call us'),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Accent Banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFFFF7ED), Color(0xFFFFEDD5)],
+                ),
+                border: Border(bottom: BorderSide(color: Color(0xFFFFD7A8))),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF97316),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.pending_actions_rounded, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ACTION REQUIRED',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: const Color(0xFFC2410C),
+                          ),
+                        ),
+                        Text(
+                          'Review & Approve Counted Items',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF431407),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (delta != 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: delta > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: delta > 0 ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                        ),
+                      ),
+                      child: Text(
+                        '${delta > 0 ? '+' : ''}£${delta.abs().toStringAsFixed(2)}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: delta > 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: FilledButton(
-              onPressed: _busy ? null : _approve,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-              child: _busy
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                  : const Text('Approve & clean', style: TextStyle(fontWeight: FontWeight.w800)),
+
+            // Content Body
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Our facility team has counted and inspected your clothes. Please check the itemized breakdown below:',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF475569),
+                      height: 1.4,
+                    ),
+                  ),
+
+                  // Optional inspector note
+                  if (note.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.sticky_note_2_rounded, size: 18, color: Color(0xFF64748B)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              note,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF334155),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // Itemized Table
+                  if (itemsList.isNotEmpty) ...[
+                    Text(
+                      'COUNTED GARMENTS (${itemsList.length})',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < itemsList.length; i++) ...[
+                            if (i > 0) const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                            Builder(builder: (context) {
+                              final itm = itemsList[i];
+                              final name = itm['itemType'] ?? itm['name'] ?? 'Garment';
+                              final qty = (itm['quantity'] as num?)?.toInt() ??
+                                  (itm['qty'] as num?)?.toInt() ??
+                                  1;
+                              final uPrice = (itm['unitPrice'] as num?)?.toDouble() ??
+                                  (itm['price'] is num ? (itm['price'] as num).toDouble() : 0.0);
+                              final lineTot = (itm['total'] as num?)?.toDouble() ?? (uPrice * qty);
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 26,
+                                      height: 26,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEEF2FF),
+                                        borderRadius: BorderRadius.circular(7),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: const Icon(Icons.checkroom_rounded, size: 15, color: Color(0xFF4F46E5)),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      ),
+                                      child: Text(
+                                        '×$qty',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF334155),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      '£${lineTot.toStringAsFixed(2)}',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Price Summary Box
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFC7D2FE)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TOTAL DUE',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                                color: const Color(0xFF4338CA),
+                              ),
+                            ),
+                            if (prev != null && amount != null && prev != amount)
+                              Text(
+                                'Was £${prev.toStringAsFixed(2)}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF64748B),
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                          ],
+                        ),
+                        Text(
+                          amount != null ? '£${amount.toStringAsFixed(2)}' : 'Pending',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF1E1B4B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => launchUrl(Uri.parse('tel:$kSupportPhone')),
+                        icon: const Icon(Icons.phone_rounded, size: 16),
+                        label: const Text('Call Us'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(100, 48),
+                          foregroundColor: const Color(0xFF334155),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _busy ? null : _approve,
+                          icon: _busy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.check_circle_rounded, size: 18),
+                          label: Text(
+                            _busy ? 'Approving...' : 'Approve & Clean',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            backgroundColor: const Color(0xFF0E3AA8),
+                            foregroundColor: Colors.white,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ]),
-      ]),
+          ],
+        ),
+      ),
     );
   }
 }
