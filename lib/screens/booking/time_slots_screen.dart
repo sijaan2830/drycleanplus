@@ -200,31 +200,38 @@ class _TimeSlotsScreenState extends State<TimeSlotsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Select a day',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0B1F5B),
-                            letterSpacing: -0.3,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select a day',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0B1F5B),
+                              letterSpacing: -0.3,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isCollection
-                              ? 'Select collection day'
-                              : 'Select delivery day (min. 48h turnaround)',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF5B6B9A),
+                          const SizedBox(height: 2),
+                          Text(
+                            isCollection
+                                ? 'Select collection day'
+                                : 'Select delivery day (min. 48h turnaround)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF5B6B9A),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => Navigator.pop(sheetCtx),
                       child: Container(
@@ -470,29 +477,36 @@ class _TimeSlotsScreenState extends State<TimeSlotsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'For $chosenDay',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0B1F5B),
-                            letterSpacing: -0.3,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'For $chosenDay',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0B1F5B),
+                              letterSpacing: -0.3,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Select ${isCollection ? 'collection' : 'delivery'} time',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF5B6B9A),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Select ${isCollection ? 'collection' : 'delivery'} time',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF5B6B9A),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => Navigator.pop(sheetCtx),
                       child: Container(
@@ -712,29 +726,36 @@ class _TimeSlotsScreenState extends State<TimeSlotsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Select ${isCollection ? 'collection' : 'delivery'} method',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0B1F5B),
-                            letterSpacing: -0.3,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select ${isCollection ? 'collection' : 'delivery'} method',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0B1F5B),
+                              letterSpacing: -0.3,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Select preference',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF5B6B9A),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Select preference',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF5B6B9A),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => Navigator.pop(sheetCtx),
                       child: Container(

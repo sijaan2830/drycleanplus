@@ -162,7 +162,7 @@ class _PrepaidPacksScreenState extends State<PrepaidPacksScreen> {
                         ),
                       ),
                       _buildToggleTabs(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Consumer<PrepaidProvider>(
                         builder: (context, prepaidProvider, child) {
                           final Widget content;
@@ -965,13 +965,13 @@ class _PrepaidPacksScreenState extends State<PrepaidPacksScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section Header (.sh)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
             child: Row(
               children: [
                 Container(
@@ -1024,10 +1024,10 @@ class _PrepaidPacksScreenState extends State<PrepaidPacksScreen> {
 
           // Cards - Horizontal sliding scrollable cards
           SizedBox(
-            height: 218,
+            height: 212,
             child: ListView.separated(
               clipBehavior: Clip.none,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemCount: discounts.length,

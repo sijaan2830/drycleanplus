@@ -306,9 +306,11 @@ class OrderCardWidget extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                delivered
-                                    ? 'Total paid'
-                                    : (isCod ? 'To pay on delivery' : 'Total'),
+                                order.bookingData.selectedItems.isEmpty && (order.transactionAmount == null || order.transactionAmount == 0)
+                                    ? 'Bill status'
+                                    : (delivered
+                                        ? 'Total paid'
+                                        : (isCod ? 'To pay on delivery' : 'Total')),
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
@@ -336,12 +338,14 @@ class OrderCardWidget extends StatelessWidget {
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 2),
                                     child: Text(
-                                      '£${total.toStringAsFixed(2)}',
+                                      order.bookingData.selectedItems.isEmpty && (order.transactionAmount == null || order.transactionAmount == 0)
+                                          ? 'Pending count'
+                                          : '£${total.toStringAsFixed(2)}',
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 26,
+                                        fontSize: order.bookingData.selectedItems.isEmpty && (order.transactionAmount == null || order.transactionAmount == 0) ? 18 : 26,
                                         height: 1.1,
                                         fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.8,
+                                        letterSpacing: -0.5,
                                         color: const Color(0xFF0B1F5B),
                                       ),
                                     ),

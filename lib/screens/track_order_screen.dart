@@ -465,9 +465,11 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  order.paymentMethod == 'cod' && !delivered
-                                      ? 'To pay on delivery'
-                                      : 'Total amount',
+                                  d.selectedItems.isEmpty && (order.transactionAmount == null || order.transactionAmount == 0)
+                                      ? 'Bill status'
+                                      : (order.paymentMethod == 'cod' && !delivered
+                                          ? 'To pay on delivery'
+                                          : 'Total amount'),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.plusJakartaSans(
@@ -477,7 +479,11 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                _buildMarkerPrice('£${total.toStringAsFixed(2)}'),
+                                _buildMarkerPrice(
+                                  d.selectedItems.isEmpty && (order.transactionAmount == null || order.transactionAmount == 0)
+                                      ? 'Pending count'
+                                      : '£${(order.transactionAmount != null && order.transactionAmount! > 0 ? order.transactionAmount! : total).toStringAsFixed(2)}',
+                                ),
                               ],
                             ),
                           ),
@@ -1702,10 +1708,142 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                       const SizedBox(height: 12),
 
                       // Items / Subtotal
-                      if (d.selectedItems.isEmpty)
-                        _buildPaymentLine('Items & Cleaning', 'Counted at facility', isCountedAtFacility: true)
-                      else
+                      if (d.selectedItems.isNotEmpty) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 16),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Itemized Garments & Services (${d.selectedItems.length})',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ...d.selectedItems.values.map((item) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 3.5),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.itemType,
+                                              style: GoogleFonts.plusJakartaSans(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: const Color(0xFF1E293B),
+                                              ),
+                                            ),
+                                            if (item.category.isNotEmpty)
+                                              Text(
+                                                item.category,
+                                                style: GoogleFonts.plusJakartaSans(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: const Color(0xFF64748B),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      Text(
+                                        item.price,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
                         _buildPaymentLine('Subtotal', '£${d.subtotal.toStringAsFixed(2)}'),
+                      ] else ...[
+                        // Notice banner for items to be counted at facility
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF81C784), width: 1.5),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF2E7D32),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 16),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2E7D32),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        'PRICE UPDATE PENDING',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Final bill will be calculated & updated once garments are itemized at our cleaning facility. You will receive an invoice update via Email and here in the app.',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1B5E20),
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildPaymentLine('Items & Cleaning', 'Counted at facility', isCountedAtFacility: true),
+                      ],
 
                       if (d.discountAmount > 0) ...[
                         const SizedBox(height: 8),
@@ -1743,7 +1881,9 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            isCod && !delivered ? 'To pay on\ndelivery' : 'Total',
+                            d.selectedItems.isEmpty && (order.transactionAmount == null || order.transactionAmount == 0)
+                                ? 'Estimated Total'
+                                : (isCod && !delivered ? 'To pay on\ndelivery' : 'Total'),
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -1751,7 +1891,11 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                               height: 1.2,
                             ),
                           ),
-                          _buildWhiteMarkerPrice('£${(order.transactionAmount != null && order.transactionAmount! > 0 ? order.transactionAmount! : (d.selectedItems.isEmpty ? 0.0 : total)).toStringAsFixed(2)}'),
+                          _buildWhiteMarkerPrice(
+                            d.selectedItems.isEmpty && (order.transactionAmount == null || order.transactionAmount == 0)
+                                ? 'Pending'
+                                : '£${(order.transactionAmount != null && order.transactionAmount! > 0 ? order.transactionAmount! : total).toStringAsFixed(2)}',
+                          ),
                         ],
                       ),
 

@@ -100,7 +100,22 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
   }
 
   void _navigateToTab(int index) {
-    if (_currentIndex == index && mainTabNotifier.value == index) return;
+    final nav = navigatorKey.currentState;
+
+    // If already on this tab, but subroutes are pushed on top, pop back to tab root!
+    if (_currentIndex == index && mainTabNotifier.value == index) {
+      if (nav != null && nav.mounted && nav.canPop()) {
+        nav.popUntil((route) => route.isFirst);
+        final routes = [
+          '/home',
+          GuestHelper.getPriceRoute(),
+          '/prepaid',
+          '/more',
+        ];
+        RouteNotifier().forceRoute(routes[index]);
+      }
+      return;
+    }
 
     HapticFeedback.selectionClick();
     setState(() => _currentIndex = index);
@@ -116,7 +131,6 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
     final targetRoute = routes[index];
     RouteNotifier().forceRoute(targetRoute);
 
-    final nav = navigatorKey.currentState;
     if (nav == null || !nav.mounted) return;
 
     // If any pushed subroute is currently over the main tab shell, pop back to the shell
@@ -154,7 +168,7 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
   }
 
   bool _shouldShowFooter(String? routeName) {
-    if (routeName == null) return false;
+    if (RouteNotifier().isLoggingOut) return false;
 
     const hiddenRoutes = {
       '/onboarding',
@@ -170,12 +184,18 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
       '/payment_options',
       '/payment',
       '/track_order',
+      '/track_driver',
       '/booking_confirmation',
-      '/guest_prices',
       '/guest_service_overview',
+      '/notifications',
+      '/notification',
     };
 
-    return !hiddenRoutes.contains(routeName);
+    if (routeName != null && hiddenRoutes.contains(routeName)) {
+      return false;
+    }
+
+    return true; // Default to showing footer on tabs and sub-screens
   }
 
   @override
@@ -377,11 +397,11 @@ class _HomeHtmlFooter extends StatelessWidget {
                       color: const Color(0xFF0A2468),
                       width: 5.0,
                     ),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x66F5B82E), // rgba(245,184,46,.4)
-                        blurRadius: 22,
-                        offset: Offset(0, 10),
+                        color: const Color(0xFF02104C).withValues(alpha: 0.28),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),

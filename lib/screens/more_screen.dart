@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/user_provider.dart';
 import '../widgets/app_ui.dart';
 import 'account_screen.dart';
@@ -213,11 +214,24 @@ class _MoreScreenState extends State<MoreScreen> {
                             ),
                             _buildItemRow(
                               icon: Icons.help_outline_rounded,
-                              title: 'Help',
-                              subtitle: 'FAQs and how it works',
+                              title: 'Help & FAQs',
+                              subtitle: 'Frequently asked questions',
                               colorA: const Color(0xFF0B6E64),
                               colorB: const Color(0xFF12A38A),
                               onTap: () => _push(const FAQScreen(), routeName: '/faq'),
+                            ),
+                            _buildItemRow(
+                              icon: Icons.mail_outline_rounded,
+                              title: 'Email Us',
+                              subtitle: 'contact@drycleanplus.co.uk',
+                              colorA: const Color(0xFF1553D6),
+                              colorB: const Color(0xFF4F95FF),
+                              onTap: () async {
+                                final uri = Uri.parse('mailto:contact@drycleanplus.co.uk');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri);
+                                }
+                              },
                             ),
                           ]),
                           const SizedBox(height: 18),

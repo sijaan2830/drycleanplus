@@ -365,6 +365,10 @@ class _FAQScreenState extends State<FAQScreen> {
                               ),
                               const SizedBox(height: 12),
 
+                              // Quick Support Banner (Email Us & Call Us)
+                              _buildQuickContactBanner(),
+                              const SizedBox(height: 12),
+
                               // FAQ List Cards
                               if (visibleItems.isEmpty)
                                 Padding(
@@ -548,6 +552,92 @@ class _FAQScreenState extends State<FAQScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuickContactBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _launchUrl('mailto:contact@drycleanplus.co.uk'),
+              child: Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF02104C).withValues(alpha: 0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.mail_outline_rounded, size: 18, color: Color(0xFF1553D6)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Email Us',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1553D6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _launchUrl('tel:01636918181'),
+              child: Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4338CA), Color(0xFF6D4AFF)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4338CA).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.phone_rounded, size: 18, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Call Us',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

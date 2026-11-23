@@ -86,23 +86,31 @@ class FooterNavigatorObserver extends NavigatorObserver {
   @override
   void didPush(Route route, Route? previousRoute) {
     super.didPush(route, previousRoute);
-    _updateRoute(route);
+    if (route is! PopupRoute) {
+      _updateRoute(route);
+    }
   }
 
   @override
   void didPop(Route route, Route? previousRoute) {
     super.didPop(route, previousRoute);
-    if (previousRoute != null) {
-      _updateRoute(previousRoute);
-    } else {
-      _updateRoute(route);
+    if (route is! PopupRoute) {
+      if (previousRoute != null && previousRoute is! PopupRoute) {
+        _updateRoute(previousRoute);
+      } else {
+        // Popped back to tab shell or root: restore active tab route
+        final idx = mainTabNotifier.value;
+        final routes = ['/home', '/prices', '/prepaid', '/more'];
+        final fallback = (idx >= 0 && idx < routes.length) ? routes[idx] : '/home';
+        _routeNotifier.updateRoute(fallback);
+      }
     }
   }
 
   @override
   void didReplace({Route? newRoute, Route? oldRoute}) {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    if (newRoute != null) {
+    if (newRoute != null && newRoute is! PopupRoute) {
       _updateRoute(newRoute);
     }
   }
@@ -110,15 +118,23 @@ class FooterNavigatorObserver extends NavigatorObserver {
   @override
   void didRemove(Route route, Route? previousRoute) {
     super.didRemove(route, previousRoute);
-    // Only update to previousRoute if the removed route was the current active route
-    // and we are not in the middle of a logout or pushAndRemoveUntil!
-    if (currentRoute == route.settings.name && previousRoute != null) {
-      _updateRoute(previousRoute);
+    if (route is! PopupRoute) {
+      if (currentRoute == route.settings.name && previousRoute != null && previousRoute is! PopupRoute) {
+        _updateRoute(previousRoute);
+      }
     }
   }
 
   void _updateRoute(Route route) {
-    currentRoute = route.settings.name;
-    _routeNotifier.updateRoute(route.settings.name);
+    final name = route.settings.name;
+    currentRoute = name;
+    if (name != null && name.isNotEmpty) {
+      _routeNotifier.updateRoute(name);
+    } else {
+      final idx = mainTabNotifier.value;
+      final routes = ['/home', '/prices', '/prepaid', '/more'];
+      final fallback = (idx >= 0 && idx < routes.length) ? routes[idx] : '/home';
+      _routeNotifier.updateRoute(fallback);
+    }
   }
 }

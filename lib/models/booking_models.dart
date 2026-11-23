@@ -346,15 +346,42 @@ class BookingData {
       collectionTime: opt(json['collectionTime']),
       deliveryDate: opt(json['deliveryDate']),
       deliveryTime: opt(json['deliveryTime']),
-      selectedItems: map(json['selectedItems']).map((key, value) {
-        final v = map(value);
-        return MapEntry(key, ServiceItem(
-          category: str(v['category']),
-          itemType: str(v['itemType'] ?? v['name']),
-          price: price(v['price']),
-          description: str(v['description']),
-        ));
-      }),
+      selectedItems: () {
+        final raw = json['selectedItems'] ?? json['items'] ?? json['lines'];
+        final Map<String, ServiceItem> res = {};
+        if (raw is Map) {
+          raw.forEach((key, value) {
+            final v = map(value);
+            final cat = str(v['category'] ?? 'General');
+            final name = str(v['itemType'] ?? v['name'] ?? 'Garment');
+            final qty = (v['quantity'] as num?)?.toInt() ?? (v['qty'] as num?)?.toInt() ?? 1;
+            final p = price(v['unitPrice'] ?? v['price']);
+            final desc = qty > 1 ? '$qty × $p' : str(v['description']);
+            res['$key'] = ServiceItem(
+              category: cat,
+              itemType: qty > 1 ? '$qty× $name' : name,
+              price: p,
+              description: desc,
+            );
+          });
+        } else if (raw is List) {
+          for (int i = 0; i < raw.length; i++) {
+            final v = map(raw[i]);
+            final cat = str(v['category'] ?? 'General');
+            final name = str(v['itemType'] ?? v['name'] ?? 'Garment');
+            final qty = (v['quantity'] as num?)?.toInt() ?? (v['qty'] as num?)?.toInt() ?? 1;
+            final p = price(v['unitPrice'] ?? v['price']);
+            final desc = qty > 1 ? '$qty × $p' : str(v['description']);
+            res['item_$i'] = ServiceItem(
+              category: cat,
+              itemType: qty > 1 ? '$qty× $name' : name,
+              price: p,
+              description: desc,
+            );
+          }
+        }
+        return res;
+      }(),
       firstName: str(json['firstName']),
       lastName: str(json['lastName']),
       email: str(json['email']),
@@ -487,18 +514,34 @@ class Order {
   }
 
   factory Order.fromJson(Map<String, dynamic> json) {
+    final bMap = json['bookingData'] is Map ? Map<String, dynamic>.from(json['bookingData']) : <String, dynamic>{};
+    if (!bMap.containsKey('selectedItems') && json.containsKey('selectedItems')) {
+      bMap['selectedItems'] = json['selectedItems'];
+    }
+    if (!bMap.containsKey('items') && json.containsKey('items')) {
+      bMap['items'] = json['items'];
+    }
+    if (!bMap.containsKey('totalPrice') && json.containsKey('subtotal')) {
+      bMap['totalPrice'] = json['subtotal'];
+    }
+    if (!bMap.containsKey('transactionAmount') && (json.containsKey('totalAmount') || json.containsKey('transactionAmount'))) {
+      bMap['transactionAmount'] = json['totalAmount'] ?? json['transactionAmount'];
+    }
+
+    final rawAmount = json['transactionAmount'] ?? json['totalAmount'] ?? bMap['transactionAmount'];
+
     return Order(
       id: '${json['id'] ?? ''}',
       orderId: '${json['orderId'] ?? ''}',
-      bookingData: BookingData.fromJson(json['bookingData'] is Map ? Map<String, dynamic>.from(json['bookingData']) : <String, dynamic>{}),
+      bookingData: BookingData.fromJson(bMap),
       type: '${json['type'] ?? 'regular'}',
       status: '${json['status'] ?? 'pending'}',
       createdAt: _parseDate(json['createdAt']),
       updatedAt: json['updatedAt'] != null ? _parseDate(json['updatedAt']) : null,
       deliveredAt: json['deliveredAt'] != null ? _parseDate(json['deliveredAt']) : null,
-      transactionAmount: json['transactionAmount'] is num ? (json['transactionAmount'] as num).toDouble() : double.tryParse('${json['transactionAmount'] ?? ''}'),
+      transactionAmount: rawAmount is num ? rawAmount.toDouble() : double.tryParse('${rawAmount ?? ''}'),
       transactionId: json['transactionId']?.toString(),
-      paymentMethod: json['paymentMethod']?.toString(),
+      paymentMethod: json['paymentMethod']?.toString() ?? bMap['paymentMethod']?.toString(),
     );
   }
 
