@@ -29,6 +29,34 @@ class BookingProvider extends ChangeNotifier {
   StreamSubscription? _addressesSubscription;
   StreamSubscription? _ordersSubscription;
   StreamSubscription? _userDataSubscription;
+  StreamSubscription? _settingsSubscription;
+
+  BookingProvider() {
+    _listenToAppSettings();
+  }
+
+  void _listenToAppSettings() {
+    try {
+      _settingsSubscription = FirebaseFirestore.instance.collection('settings').doc('app').snapshots().listen((snap) {
+        if (snap.exists && snap.data() != null) {
+          final data = snap.data()!;
+          if (data.containsKey('serviceFeeEnabled')) {
+            models.BookingData.serviceFeeEnabled = data['serviceFeeEnabled'] as bool? ?? true;
+          }
+          if (data.containsKey('serviceFee')) {
+            models.BookingData.serviceFee = (data['serviceFee'] as num?)?.toDouble() ?? 2.99;
+          }
+          if (data.containsKey('deliveryFeeEnabled')) {
+            models.BookingData.deliveryFeeEnabled = data['deliveryFeeEnabled'] as bool? ?? false;
+          }
+          if (data.containsKey('deliveryFee')) {
+            models.BookingData.deliveryFee = (data['deliveryFee'] as num?)?.toDouble() ?? 0.0;
+          }
+          notifyListeners();
+        }
+      }, onError: (_) {});
+    } catch (_) {}
+  }
 
   models.BookingData get bookingData => _bookingData;
   List<models.Order> get orders => _orders;
@@ -274,6 +302,7 @@ class BookingProvider extends ChangeNotifier {
     _addressesSubscription?.cancel();
     _ordersSubscription?.cancel();
     _userDataSubscription?.cancel();
+    _settingsSubscription?.cancel();
     super.dispose();
   }
 

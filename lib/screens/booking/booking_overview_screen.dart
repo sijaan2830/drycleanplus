@@ -482,10 +482,14 @@ class _BookingOverviewScreenState extends State<BookingOverviewScreen> {
                       isDiscount: true,
                     ),
                   ],
-                  const SizedBox(height: 6),
-                  _buildPriceLine('Service fee', '£${BookingData.serviceFee.toStringAsFixed(2)}'),
-                  const SizedBox(height: 6),
-                  _buildPriceLine('Delivery fee', 'FREE', isFreePill: true),
+                  if (BookingData.serviceFeeEnabled && BookingData.serviceFee > 0) ...[
+                    const SizedBox(height: 6),
+                    _buildPriceLine('Service fee', '£${BookingData.serviceFee.toStringAsFixed(2)}'),
+                  ],
+                  if (BookingData.deliveryFeeEnabled && BookingData.deliveryFee > 0) ...[
+                    const SizedBox(height: 6),
+                    _buildPriceLine('Delivery fee', '£${BookingData.deliveryFee.toStringAsFixed(2)}'),
+                  ],
                   const SizedBox(height: 10),
 
                   // Dashed Divider

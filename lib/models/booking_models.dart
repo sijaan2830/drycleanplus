@@ -427,11 +427,17 @@ class BookingData {
   bool get isReadyForPayment => hasSelectedAddress && hasCollectionDateTime && hasDeliveryDateTime && hasContactInfo && acceptedTerms;
 
   /// Fixed fees. Tax has been removed from the order total.
-  static const double serviceFee = 2.99;
-  static const double deliveryFee = 0.0;
+  static double serviceFee = 2.99;
+  static double deliveryFee = 0.0;
+  static bool serviceFeeEnabled = true;
+  static bool deliveryFeeEnabled = false;
 
   /// Total payable = items - discount + service fee + delivery fee.
-  double get totalAmount => discountedSubtotal + serviceFee + deliveryFee + tipAmount;
+  double get totalAmount =>
+      discountedSubtotal +
+      (serviceFeeEnabled ? serviceFee : 0.0) +
+      (deliveryFeeEnabled ? deliveryFee : 0.0) +
+      tipAmount;
 
   /// Kept for older call sites.
   double get calculatedTotalPrice => totalAmount;

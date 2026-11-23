@@ -200,7 +200,10 @@ class _ReviewOrderScreenState extends State<ReviewOrderScreen> {
               if (d.discountAmount > 0)
                 _Row('Discount${d.discountCode == null ? '' : ' (${d.discountCode})'}',
                     value: '−${money(d.discountAmount)}', valueColor: const Color(0xFF16A34A)),
-              _Row('Service fee', value: money(BookingData.serviceFee)),
+              if (BookingData.serviceFeeEnabled && BookingData.serviceFee > 0)
+                _Row('Service fee', value: money(BookingData.serviceFee)),
+              if (BookingData.deliveryFeeEnabled && BookingData.deliveryFee > 0)
+                _Row('Delivery fee', value: money(BookingData.deliveryFee)),
               if (d.tipAmount > 0) _Row('Driver tip', value: money(d.tipAmount)),
               const SizedBox(height: 4),
               // Modern Promo Code Box

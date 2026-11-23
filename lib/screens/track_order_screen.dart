@@ -1853,14 +1853,18 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                           isDiscount: true,
                         ),
                       ],
-                      const SizedBox(height: 8),
-                      _buildPaymentLine('Service fee', '£${models.BookingData.serviceFee.toStringAsFixed(2)}'),
+                      if (models.BookingData.serviceFeeEnabled && models.BookingData.serviceFee > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPaymentLine('Service fee', '£${models.BookingData.serviceFee.toStringAsFixed(2)}'),
+                      ],
                       if (d.tipAmount > 0) ...[
                         const SizedBox(height: 8),
                         _buildPaymentLine('Driver tip', '£${d.tipAmount.toStringAsFixed(2)}'),
                       ],
-                      const SizedBox(height: 8),
-                      _buildPaymentLine('Delivery fee', 'FREE', isFreePill: true),
+                      if (models.BookingData.deliveryFeeEnabled && models.BookingData.deliveryFee > 0) ...[
+                        const SizedBox(height: 8),
+                        _buildPaymentLine('Delivery fee', '£${models.BookingData.deliveryFee.toStringAsFixed(2)}'),
+                      ],
                       const SizedBox(height: 12),
 
                       // Dashed Divider
