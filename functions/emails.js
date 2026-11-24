@@ -1,4 +1,5 @@
 const { Resend } = require('resend');
+const { generateInvoicePdfBuffer } = require('./invoice_pdf');
 
 // Initialize Resend with API key from environment variable
 const getResendClient = () => {
@@ -89,26 +90,11 @@ function buildItemsRowsHtml(items, fallbackTotal) {
                 </tr>`).join('');
 }
 
-/** Signature logo matching website DrycleanPlusLogo.jsx (email-safe HTML) */
+/** Signature logo ONLY matching website DrycleanPlusLogo.jsx (without DC+ green box) */
 function buildSignatureLogoHtml() {
   return `
-                    <a href="${SITE_URL}" style="text-decoration: none; display: inline-block;">
-                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                        <tr>
-                          <td valign="middle" style="padding-right: 9px;">
-                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                              <tr>
-                                <td align="center" valign="middle" width="34" height="34" bgcolor="#064e3b" style="width: 34px; height: 34px; background-color: #064e3b; border-radius: 10px 22px 22px 10px; border: 1.5px solid #4ade80; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; font-weight: 900; color: #FFFFFF; letter-spacing: -0.5px;">
-                                  DC<span style="color: #EF4444;">+</span>
-                                </td>
-                              </tr>
-                            </table>
-                          </td>
-                          <td valign="middle" style="white-space: nowrap;">
-                            <span style="font-family: 'Satisfy', 'Brush Script MT', 'Segoe Script', cursive, Georgia, serif; font-size: 24px; font-weight: bold; font-style: italic; color: #1B5E20; letter-spacing: 0.2px;">Dryclean</span><span style="font-family: 'Satisfy', 'Brush Script MT', 'Segoe Script', cursive, Georgia, serif; font-size: 24px; font-weight: bold; font-style: italic; color: #EF4444; margin-left: 2px;">Plus</span><span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 19px; font-weight: 900; color: #EF4444; margin-left: 2px;">+</span><span style="color: #FACC15; font-size: 14px; margin-left: 4px; vertical-align: middle;">&#10022;</span>
-                          </td>
-                        </tr>
-                      </table>
+                    <a href="${SITE_URL}" style="text-decoration: none; display: inline-block; white-space: nowrap;">
+                      <span style="font-family: 'Satisfy', 'Brush Script MT', 'Segoe Script', cursive, Georgia, serif; font-size: 26px; font-weight: bold; font-style: italic; color: #1B5E20; letter-spacing: 0.2px;">Dryclean</span><span style="font-family: 'Satisfy', 'Brush Script MT', 'Segoe Script', cursive, Georgia, serif; font-size: 26px; font-weight: bold; font-style: italic; color: #EF4444; margin-left: 3px;">Plus</span><span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 20px; font-weight: 900; color: #EF4444; margin-left: 2px;">+</span><span style="color: #FACC15; font-size: 14px; margin-left: 4px; vertical-align: middle;">&#10022;</span>
                     </a>`;
 }
 
@@ -628,12 +614,26 @@ async function sendOrderEmail({ type, order, orderDocId, recipientEmail }) {
 
   try {
     const resend = getResendClient();
+    const attachments = [];
+    if (type === 'delivered' || type === 'awaiting_approval') {
+      try {
+        const pdfBuffer = await generateInvoicePdfBuffer(order, id);
+        attachments.push({
+          filename: `Invoice-INV-${id}.pdf`,
+          content: pdfBuffer,
+        });
+      } catch (pdfErr) {
+        console.warn('[emails] PDF attachment skipped:', pdfErr.message);
+      }
+    }
+
     const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: [targetEmail.trim()],
       reply_to: REPLY_TO,
       subject,
       html,
+      ...(attachments.length > 0 ? { attachments } : {}),
     });
 
     console.log(`[emails] Email "${type}" sent successfully to ${targetEmail} (id: ${result.data?.id})`);

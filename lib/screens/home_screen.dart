@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -237,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(width: 9),
 
-            // Notification Bell Glass Circle (.bell)
+            // Notification Bell Glass Circle (.bell) with live unread dot
             GestureDetector(
               onTap: () => Navigator.of(context).push(
                 smoothRoute(const NotificationScreen(), name: '/notifications'),
@@ -249,28 +251,49 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.white.withOpacity(0.20),
                   shape: BoxShape.circle,
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(
-                      Icons.notifications_none_rounded,
-                      color: Colors.white,
-                      size: 21,
-                    ),
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFFC20E),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Builder(
+                  builder: (context) {
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid == null) {
+                      return const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 21);
+                    }
+                    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uid)
+                          .collection('notifications')
+                          .where('read', isEqualTo: false)
+                          .limit(1)
+                          .snapshots(),
+                      builder: (context, snap) {
+                        final hasUnread = (snap.data?.docs.isNotEmpty ?? false);
+                        return Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Icon(
+                              Icons.notifications_none_rounded,
+                              color: Colors.white,
+                              size: 21,
+                            ),
+                            if (hasUnread)
+                              Positioned(
+                                top: 6,
+                                right: 6,
+                                child: Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFFC20E),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ),

@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import '../screens/track_driver_screen.dart';
@@ -14,6 +17,10 @@ import '../screens/track_order_screen.dart';
 class PushNotificationService {
   static final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  static StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _inboxSub;
+  static StreamSubscription<String>? _tokenRefreshSub;
+  static final Set<String> _seenDocIds = {};
+  static bool _initialInboxLoaded = false;
 
   static Future<void> initialize() async {
     try {
@@ -43,33 +50,33 @@ class PushNotificationService {
       await _localNotifications.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse details) {
-          if (details.payload != null) {
+          if (details.payload != null && details.payload!.isNotEmpty) {
             try {
-              _handleNotificationClick({});
+              final decoded = jsonDecode(details.payload!);
+              if (decoded is Map) {
+                _handleNotificationClick(Map<String, dynamic>.from(decoded));
+                return;
+              }
             } catch (e) {
               print('Error parsing notification payload: $e');
             }
           }
+          _handleNotificationClick({});
         },
       );
 
-      // Setup FCM token and topics safely in background without blocking launch
+      // Setup FCM token, token refresh, topics, and realtime Firestore inbox alerts
       _setupFCMTokenAndTopics();
 
       // Handle Foreground Messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         print('PUSH: Received foreground message');
-        print('PUSH: Title: ${message.notification?.title}');
-        print('PUSH: Body: ${message.notification?.body}');
-        print('PUSH: Data: ${message.data}');
         _showLocalNotification(message);
       });
 
       // Handle Background & Terminated Messages (when notification is clicked)
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         print('PUSH: App opened from notification');
-        print('PUSH: Title: ${message.notification?.title}');
-        print('PUSH: Data: ${message.data}');
         _handleNotificationClick(message.data);
       });
     } catch (e) {
@@ -78,46 +85,50 @@ class PushNotificationService {
   }
 
   static void _setupFCMTokenAndTopics() {
+    // Always sync auth + real-time Firestore notification listener (works even if APNS/Blaze isn't active)
+    FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+      _listenToInAppNotifications(user);
+      if (user != null) {
+        await updateUserToken(user.uid);
+      }
+    });
+
+    // Keep FCM token synced when refreshed (critical on iOS when APNS arrives late)
+    _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = _fcm.onTokenRefresh.listen((newToken) async {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.uid.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'fcmToken': newToken,
+          'lastTokenSync': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    });
+
     Future.microtask(() async {
       try {
         if (Platform.isIOS) {
-          // On iOS, APNS token is generated asynchronously by Apple
-          // Wait briefly then check — if not available, skip topic subscription
           String? apns;
           try {
             apns = await _fcm.getAPNSToken();
-            print('APNS Token: $apns');
           } catch (e) {
             print('APNS Token fetch notice: $e');
           }
           if (apns == null) {
-            print('APNS Token not yet available — skipping topic subscriptions for now');
+            print('APNS Token not yet available — waiting for onTokenRefresh');
             return;
           }
         }
 
         String? token = await _fcm.getToken();
-        print('FCM Token: $token');
-
-        // Subscribe to auth state changes to sync token whenever user logs in
-        FirebaseAuth.instance.authStateChanges().listen((User? user) async {
-          if (user != null && token != null) {
-            print('PUSH: Auth state change - user detected: ${user.uid}. Syncing token.');
-            await updateUserToken(user.uid);
-          }
-        });
-
-        // Sync token if user is logged in
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser != null && token != null) {
           await updateUserToken(currentUser.uid);
         }
 
-        // Subscribe to topics (safe — APNS token is available on iOS)
         try {
           await _fcm.subscribeToTopic('offers');
           await _fcm.subscribeToTopic('prepaid_packs');
-          print('Subscribed to "offers" and "prepaid_packs" topics');
         } catch (e) {
           print('Topic subscription notice: $e');
         }
@@ -127,19 +138,61 @@ class PushNotificationService {
     });
   }
 
+  /// Watches `users/{uid}/notifications` in real-time so status changes written
+  /// by Admin Panel or Driver App immediately alert the user in foreground.
+  static void _listenToInAppNotifications(User? user) {
+    _inboxSub?.cancel();
+    _seenDocIds.clear();
+    _initialInboxLoaded = false;
+
+    if (user == null || user.uid.isEmpty) return;
+
+    _inboxSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .limit(15)
+        .snapshots()
+        .listen((snap) {
+      if (!_initialInboxLoaded) {
+        for (final doc in snap.docs) {
+          _seenDocIds.add(doc.id);
+        }
+        _initialInboxLoaded = true;
+        return;
+      }
+
+      for (final change in snap.docChanges) {
+        if (change.type == DocumentChangeType.added && !_seenDocIds.contains(change.doc.id)) {
+          _seenDocIds.add(change.doc.id);
+          final data = change.doc.data();
+          if (data != null && data['read'] != true) {
+            _showLocalNotificationDirect(
+              id: change.doc.id.hashCode,
+              title: '${data['title'] ?? 'DryClean Plus'}',
+              body: '${data['body'] ?? ''}',
+              data: {
+                'type': 'order',
+                if (data['orderId'] != null) 'orderId': '${data['orderId']}',
+              },
+            );
+          }
+        }
+      }
+    }, onError: (e) {
+      print('PUSH: In-app inbox listener notice: $e');
+    });
+  }
+
   static Future<void> updateUserToken(String userId) async {
-    print('PUSH: updateUserToken called for $userId');
     try {
       String? token = await _fcm.getToken();
       if (token != null && userId.isNotEmpty) {
-        print('PUSH: Syncing token to Firestore: $token');
-        await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        await FirebaseFirestore.instance.collection('users').doc(userId).set({
           'fcmToken': token,
           'lastTokenSync': FieldValue.serverTimestamp(),
-        });
-        print('PUSH: FCM Token updated in Firestore successfully');
-      } else {
-        print('PUSH: Token or userId is null. Token: $token, UserId: $userId');
+        }, SetOptions(merge: true));
       }
     } catch (e) {
       print('PUSH: Error updating FCM token in Firestore: $e');
@@ -206,6 +259,20 @@ class PushNotificationService {
   }
 
   static Future<void> _showLocalNotification(RemoteMessage message) async {
+    await _showLocalNotificationDirect(
+      id: message.hashCode,
+      title: message.notification?.title ?? 'DryClean Plus',
+      body: message.notification?.body ?? '',
+      data: message.data,
+    );
+  }
+
+  static Future<void> _showLocalNotificationDirect({
+    required int id,
+    required String title,
+    required String body,
+    Map<String, dynamic> data = const {},
+  }) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'high_importance_channel', // Must match AndroidManifest.xml
@@ -229,10 +296,11 @@ class PushNotificationService {
     );
 
     await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title,
-      message.notification?.body,
+      id,
+      title,
+      body,
       platformChannelSpecifics,
+      payload: data.isNotEmpty ? jsonEncode(data) : null,
     );
   }
 
