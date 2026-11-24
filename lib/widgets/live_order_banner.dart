@@ -136,7 +136,10 @@ class _OrdersState extends State<_Orders> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -191,9 +194,10 @@ class _OrdersState extends State<_Orders> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                                 Text(
                                   '#${order.orderId}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -205,6 +209,8 @@ class _OrdersState extends State<_Orders> {
                             const SizedBox(height: 5),
                             Text(
                               info.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
@@ -216,6 +222,8 @@ class _OrdersState extends State<_Orders> {
                               approval
                                   ? 'Tap to review and approve counted items'
                                   : 'Tap to see live van tracking on map',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,

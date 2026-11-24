@@ -570,40 +570,42 @@ class _ApprovalCardState extends State<ApprovalCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 30),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFFFB020), width: 2),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Color(0xFFEEF3FF)],
+        ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x33B45309),
-            blurRadius: 26,
-            offset: Offset(0, 12),
+            color: Color(0x7F02104C),
+            blurRadius: 30,
+            offset: Offset(0, 18),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Top Accent Banner
+            // Top Accent Banner (Navy + Branded Gold)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFFFFF7ED), Color(0xFFFFEDD5)],
+                  colors: [Color(0xFF0B1F5B), Color(0xFF1E3A8A)],
                 ),
-                border: Border(bottom: BorderSide(color: Color(0xFFFFD7A8))),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF97316),
+                      color: const Color(0xFFFFD25E),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.pending_actions_rounded, color: Colors.white, size: 18),
+                    child: const Icon(Icons.pending_actions_rounded, color: Color(0xFF0B1F5B), size: 18),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -613,18 +615,18 @@ class _ApprovalCardState extends State<ApprovalCard> {
                         Text(
                           'ACTION REQUIRED',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.8,
-                            color: const Color(0xFFC2410C),
+                            color: const Color(0xFFFFD25E),
                           ),
                         ),
                         Text(
                           'Review & Approve Counted Items',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
+                            fontSize: 14.5,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF431407),
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -634,10 +636,10 @@ class _ApprovalCardState extends State<ApprovalCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: delta > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                        color: delta > 0 ? const Color(0xFFFFE4E6) : const Color(0xFFDCFCE7),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: delta > 0 ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                          color: delta > 0 ? const Color(0xFFFDA4AF) : const Color(0xFF86EFAC),
                         ),
                       ),
                       child: Text(
@@ -645,7 +647,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: delta > 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                          color: delta > 0 ? const Color(0xFFE11D48) : const Color(0xFF16A34A),
                         ),
                       ),
                     ),
@@ -875,9 +877,9 @@ class _ApprovalCardState extends State<ApprovalCard> {
                           ),
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size.fromHeight(48),
-                            backgroundColor: const Color(0xFF0E3AA8),
+                            backgroundColor: const Color(0xFF0B1F5B),
                             foregroundColor: Colors.white,
-                            elevation: 2,
+                            elevation: 4,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                         ),
