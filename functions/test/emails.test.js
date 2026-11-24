@@ -35,7 +35,7 @@ console.log('Testing email template generators...\n');
 
 // 1. Order confirmation
 const confHtml = buildOrderConfirmationEmail(sampleOrder, 'DC26000099');
-assert(confHtml.includes('Booking Confirmed #DC26000099'), 'Confirmation title matches');
+assert(confHtml.includes('Your booking is confirmed'), 'Confirmation title matches');
 assert(confHtml.includes('Sarah'), 'Customer name included');
 assert(confHtml.includes('W8 4PF'), 'Postcode included');
 console.log('✓ Order Confirmation HTML template generated successfully');
@@ -45,11 +45,12 @@ const approvalHtml = buildBillApprovalEmail(sampleOrder, 'DC26000099');
 assert(approvalHtml.includes('Suit (2 pc)'), 'Item name included');
 assert(approvalHtml.includes('Shirt (Wash & Iron)'), 'Second item included');
 assert(approvalHtml.includes('£38.25'), 'Final total included');
-assert(approvalHtml.includes('Review &amp; Approve Order Now') || approvalHtml.includes('Review & Approve Order Now'), 'Approval CTA included');
+assert(approvalHtml.includes('Review and approve order'), 'Approval CTA included');
 console.log('✓ Bill Approval HTML template generated successfully');
 
 // 3. Delivered invoice
 const invoiceHtml = buildDeliveredInvoiceEmail(sampleOrder, 'DC26000099');
+assert(invoiceHtml.includes('Your order has been delivered'), 'Delivered heading matches');
 assert(invoiceHtml.includes('INV-DC26000099'), 'Invoice ID included');
 assert(invoiceHtml.includes('£38.25') || invoiceHtml.includes('38.25'), 'Invoice total included');
 assert(invoiceHtml.includes('Card on Delivery'), 'Payment method included');
