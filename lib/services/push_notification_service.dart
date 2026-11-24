@@ -31,6 +31,15 @@ class PushNotificationService {
         sound: true,
       );
 
+      // Ensure iOS shows foreground banner/sound even if app is active
+      if (Platform.isIOS) {
+        await _fcm.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+
       // Initialize Local Notifications for Foreground display
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -64,6 +73,20 @@ class PushNotificationService {
           _handleNotificationClick({});
         },
       );
+
+      // Register high_importance_channel explicitly on Android 8.0+
+      const AndroidNotificationChannel highImportanceChannel =
+          AndroidNotificationChannel(
+        'high_importance_channel',
+        'High Importance Notifications',
+        description: 'Order status updates, driver arrivals and special offers.',
+        importance: Importance.max,
+        playSound: true,
+      );
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(highImportanceChannel);
 
       // Setup FCM token, token refresh, topics, and realtime Firestore inbox alerts
       _setupFCMTokenAndTopics();
@@ -109,10 +132,14 @@ class PushNotificationService {
       try {
         if (Platform.isIOS) {
           String? apns;
-          try {
-            apns = await _fcm.getAPNSToken();
-          } catch (e) {
-            print('APNS Token fetch notice: $e');
+          for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+              apns = await _fcm.getAPNSToken();
+              if (apns != null) break;
+            } catch (e) {
+              print('APNS Token fetch notice: $e');
+            }
+            await Future.delayed(const Duration(seconds: 2));
           }
           if (apns == null) {
             print('APNS Token not yet available — waiting for onTokenRefresh');
@@ -120,9 +147,8 @@ class PushNotificationService {
           }
         }
 
-        String? token = await _fcm.getToken();
         final currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser != null && token != null) {
+        if (currentUser != null) {
           await updateUserToken(currentUser.uid);
         }
 
@@ -185,14 +211,41 @@ class PushNotificationService {
     });
   }
 
+  static Future<void> ensureTokenSynced() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      await updateUserToken(uid);
+    }
+  }
+
   static Future<void> updateUserToken(String userId) async {
+    if (userId.isEmpty) return;
     try {
-      String? token = await _fcm.getToken();
-      if (token != null && userId.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('users').doc(userId).set({
+      String? token;
+      try {
+        token = await _fcm.getToken();
+      } catch (e) {
+        print('PUSH: getToken notice (e.g. APNS pending): $e');
+      }
+      final ref = FirebaseFirestore.instance.collection('users').doc(userId);
+      if (token != null && token.isNotEmpty) {
+        await ref.set({
           'fcmToken': token,
+          'fcmPlatform': Platform.operatingSystem,
+          'notificationsEnabled': true,
           'lastTokenSync': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+      } else {
+        // Ensure field schema exists on doc without overwriting an existing token
+        final snap = await ref.get();
+        final data = snap.data();
+        if (data == null || !data.containsKey('fcmToken')) {
+          await ref.set({
+            'fcmToken': null,
+            'notificationsEnabled': true,
+            'lastTokenSync': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
       }
     } catch (e) {
       print('PUSH: Error updating FCM token in Firestore: $e');

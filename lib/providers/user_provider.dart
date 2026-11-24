@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
+import '../services/push_notification_service.dart';
 
 class UserProvider extends ChangeNotifier {
   // User profile data
@@ -122,6 +123,9 @@ class UserProvider extends ChangeNotifier {
       }
     }
     
+    // Sync FCM token automatically for returning users
+    PushNotificationService.ensureTokenSynced();
+
     notifyListeners();
   }
 

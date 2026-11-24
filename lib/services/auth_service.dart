@@ -204,6 +204,8 @@ class AuthService {
           'isGuest': false,
           'orderCount': 0,
           'prepaidBalance': 0,
+          'fcmToken': null,
+          'notificationsEnabled': true,
         });
         print('User document created in Firestore');
       } else {
