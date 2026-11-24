@@ -59,7 +59,8 @@ service-account.json
 /*.html
 /app_store_screenshots_ipad/
 /marketing_poster/
-/functions/
+/functions/node_modules/
+/functions/.env
 
 *.apk
 

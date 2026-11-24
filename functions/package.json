@@ -1,0 +1,20 @@
+{
+  "name": "drycleanplus-functions",
+  "description": "DryClean Plus server: automatic order notifications, driver job alerts, admin broadcasts",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "lint": "node --check index.js && node --check notifications.js && node --check emails.js",
+    "test": "node test/templates.test.js && node test/emails.test.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.1.0",
+    "resend": "^6.39.0"
+  }
+}
