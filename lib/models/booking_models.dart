@@ -334,6 +334,7 @@ class BookingData {
     String str(Object? v) => v == null ? '' : '$v';
     String? opt(Object? v) => v == null ? null : '$v';
     double numv(Object? v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}'.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+    int intv(Object? v, [int fallback = 1]) => v is num ? v.toInt() : int.tryParse('${v ?? ''}'.replaceAll(RegExp(r'[^0-9]'), '')) ?? fallback;
     Map<String, dynamic> map(Object? v) => v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
     Address? addr(Object? v) => v is Map ? Address.fromJson(map(v)) : null;
     String price(Object? v) => v is num ? '£${v.toStringAsFixed(2)}' : str(v);
@@ -354,7 +355,7 @@ class BookingData {
             final v = map(value);
             final cat = str(v['category'] ?? 'General');
             final name = str(v['itemType'] ?? v['name'] ?? 'Garment');
-            final qty = (v['quantity'] as num?)?.toInt() ?? (v['qty'] as num?)?.toInt() ?? 1;
+            final qty = intv(v['quantity'] ?? v['qty'], 1);
             final p = price(v['unitPrice'] ?? v['price']);
             final desc = qty > 1 ? '$qty × $p' : str(v['description']);
             res['$key'] = ServiceItem(
@@ -369,7 +370,7 @@ class BookingData {
             final v = map(raw[i]);
             final cat = str(v['category'] ?? 'General');
             final name = str(v['itemType'] ?? v['name'] ?? 'Garment');
-            final qty = (v['quantity'] as num?)?.toInt() ?? (v['qty'] as num?)?.toInt() ?? 1;
+            final qty = intv(v['quantity'] ?? v['qty'], 1);
             final p = price(v['unitPrice'] ?? v['price']);
             final desc = qty > 1 ? '$qty × $p' : str(v['description']);
             res['item_$i'] = ServiceItem(

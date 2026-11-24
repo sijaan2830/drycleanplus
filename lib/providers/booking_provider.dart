@@ -41,16 +41,18 @@ class BookingProvider extends ChangeNotifier {
         if (snap.exists && snap.data() != null) {
           final data = snap.data()!;
           if (data.containsKey('serviceFeeEnabled')) {
-            models.BookingData.serviceFeeEnabled = data['serviceFeeEnabled'] as bool? ?? true;
+            models.BookingData.serviceFeeEnabled = data['serviceFeeEnabled'] == true || data['serviceFeeEnabled']?.toString() == 'true';
           }
           if (data.containsKey('serviceFee')) {
-            models.BookingData.serviceFee = (data['serviceFee'] as num?)?.toDouble() ?? 2.99;
+            final sv = data['serviceFee'];
+            models.BookingData.serviceFee = sv is num ? sv.toDouble() : (double.tryParse('$sv'.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 2.99);
           }
           if (data.containsKey('deliveryFeeEnabled')) {
-            models.BookingData.deliveryFeeEnabled = data['deliveryFeeEnabled'] as bool? ?? false;
+            models.BookingData.deliveryFeeEnabled = data['deliveryFeeEnabled'] == true || data['deliveryFeeEnabled']?.toString() == 'true';
           }
           if (data.containsKey('deliveryFee')) {
-            models.BookingData.deliveryFee = (data['deliveryFee'] as num?)?.toDouble() ?? 0.0;
+            final dv = data['deliveryFee'];
+            models.BookingData.deliveryFee = dv is num ? dv.toDouble() : (double.tryParse('$dv'.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0);
           }
           notifyListeners();
         }
