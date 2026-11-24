@@ -567,109 +567,127 @@ class _ApprovalCardState extends State<ApprovalCard> {
 
     final delta = (amount != null && prev != null) ? (amount - prev) : 0.0;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 30),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, Color(0xFFEEF3FF)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x7F02104C),
-            blurRadius: 30,
-            offset: Offset(0, 18),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Top Accent Banner (Navy + Branded Gold)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF0B1F5B), Color(0xFF1E3A8A)],
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFD25E),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.pending_actions_rounded, color: Color(0xFF0B1F5B), size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ACTION REQUIRED',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                            color: const Color(0xFFFFD25E),
-                          ),
-                        ),
-                        Text(
-                          'Review & Approve Counted Items',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (delta != 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: delta > 0 ? const Color(0xFFFFE4E6) : const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: delta > 0 ? const Color(0xFFFDA4AF) : const Color(0xFF86EFAC),
-                        ),
-                      ),
-                      child: Text(
-                        '${delta > 0 ? '+' : ''}£${delta.abs().toStringAsFixed(2)}',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: delta > 0 ? const Color(0xFFE11D48) : const Color(0xFF16A34A),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 26),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Color(0xFFEEF3FF)],
             ),
-
-            // Content Body
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Our facility team has counted and inspected your clothes. Please check the itemized breakdown below:',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF475569),
-                      height: 1.4,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x7F02104C),
+                blurRadius: 30,
+                offset: Offset(0, 18),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: Stack(
+              children: [
+                // Inner disc & ring matching other journey cards
+                Positioned(
+                  top: -60,
+                  right: -60,
+                  child: Container(
+                    width: 190,
+                    height: 190,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0x297BCBFB),
                     ),
                   ),
+                ),
+                Positioned(
+                  bottom: -46,
+                  left: -46,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0x33FFCB4F),
+                        width: 15,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Content Body
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 38, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Review & Approve',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF0B1F5B),
+                                    letterSpacing: -0.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Counted Garments & Final Bill',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF1F3274),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (delta != 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: delta > 0 ? const Color(0xFFFFE4E6) : const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: delta > 0 ? const Color(0xFFFDA4AF) : const Color(0xFF86EFAC),
+                                ),
+                              ),
+                              child: Text(
+                                '${delta > 0 ? '+' : ''}£${delta.abs().toStringAsFixed(2)}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: delta > 0 ? const Color(0xFFE11D48) : const Color(0xFF16A34A),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      Text(
+                        'Our facility team has counted and inspected your clothes. Please check the itemized breakdown below:',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF475569),
+                          height: 1.4,
+                        ),
+                      ),
 
                   // Optional inspector note
                   if (note.isNotEmpty) ...[
@@ -892,6 +910,55 @@ class _ApprovalCardState extends State<ApprovalCard> {
           ],
         ),
       ),
+    ),
+
+    // Rotated Flag (-3 deg) at Top-Left matching all other journey cards
+    Positioned(
+          top: -12,
+          left: 14,
+          child: Transform.rotate(
+            angle: -3 * math.pi / 180,
+            child: Container(
+              height: 26,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: const Color(0xFF0B1F5B),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x5902104C),
+                    blurRadius: 14,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFD25E),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'ACTION REQUIRED',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFFFFD25E),
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
