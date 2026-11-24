@@ -7,6 +7,7 @@ import '../config/theme.dart';
 import '../models/booking_models.dart' as models;
 import '../utils/order_status.dart';
 import '../widgets/order_card_widget.dart';
+import '../widgets/persistent_footer_app.dart';
 import 'track_order_screen.dart';
 
 class PastOrdersScreen extends StatefulWidget {
@@ -18,6 +19,21 @@ class PastOrdersScreen extends StatefulWidget {
 
 class _PastOrdersScreenState extends State<PastOrdersScreen> {
   bool _isLoading = true;
+
+  void _goBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      final state = persistentFooterAppState ?? persistentFooterKey.currentState;
+      if (state != null && state.tabHistory.length > 1) {
+        state.tabHistory.removeLast();
+        final prevTab = state.tabHistory.last;
+        state.setTab(prevTab, addToHistory: false);
+      } else {
+        Navigator.of(context).pushReplacementNamed('/more');
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -63,9 +79,14 @@ class _PastOrdersScreenState extends State<PastOrdersScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Scaffold(
         backgroundColor: const Color(0xFF1245B5),
         body: Container(
           decoration: const BoxDecoration(
@@ -184,6 +205,7 @@ class _PastOrdersScreenState extends State<PastOrdersScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -197,13 +219,7 @@ class _PastOrdersScreenState extends State<PastOrdersScreen> {
             shape: const CircleBorder(),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () {
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                } else {
-                  Navigator.of(context).pushReplacementNamed('/more');
-                }
-              },
+              onTap: _goBack,
               child: Container(
                 width: 44,
                 height: 44,

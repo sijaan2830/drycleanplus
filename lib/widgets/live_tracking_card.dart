@@ -18,6 +18,20 @@ import '../utils/order_status.dart';
 const String kMapTilesUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
 const String kSupportPhone = '01636918181';
 
+double _asDouble(dynamic val, [double fallback = 0.0]) {
+  if (val == null) return fallback;
+  if (val is num) return val.toDouble();
+  final s = val.toString().replaceAll(RegExp(r'[^0-9.]'), '');
+  return double.tryParse(s) ?? fallback;
+}
+
+int _asInt(dynamic val, [int fallback = 1]) {
+  if (val == null) return fallback;
+  if (val is num) return val.toInt();
+  final s = val.toString().replaceAll(RegExp(r'[^0-9]'), '');
+  return int.tryParse(s) ?? fallback;
+}
+
 /// Live driver map for one order.
 ///
 /// The driver app writes `live_tracking/{orderId}` while the driver is on the way
@@ -114,13 +128,16 @@ class _LiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lat = (data['lat'] as num?)?.toDouble(), lng = (data['lng'] as num?)?.toDouble();
+    final lat = data['lat'] != null ? _asDouble(data['lat']) : null;
+    final lng = data['lng'] != null ? _asDouble(data['lng']) : null;
     final dest = (data['destination'] as Map?)?.cast<String, dynamic>();
-    final destLL = dest == null ? null : LatLng((dest['lat'] as num).toDouble(), (dest['lng'] as num).toDouble());
+    final destLat = dest != null && dest['lat'] != null ? _asDouble(dest['lat']) : null;
+    final destLng = dest != null && dest['lng'] != null ? _asDouble(dest['lng']) : null;
+    final destLL = (destLat != null && destLng != null && destLat != 0.0) ? LatLng(destLat, destLng) : null;
     final arrived = data['state'] == 'arrived';
     final pickup = data['phase'] != 'delivery';
-    final eta = (data['etaMinutes'] as num?)?.toInt();
-    final meters = (data['distanceMeters'] as num?)?.toInt();
+    final eta = data['etaMinutes'] != null ? _asInt(data['etaMinutes']) : null;
+    final meters = data['distanceMeters'] != null ? _asInt(data['distanceMeters']) : null;
     final name = '${data['driverFirstName'] ?? 'Your driver'}';
     final vehicle = [data['vehicle'], if ('${data['regEnding'] ?? ''}'.isNotEmpty) '…${data['regEnding']}'].where((e) => e != null && '$e'.isNotEmpty).join(' · ');
     final updated = (data['updatedAt'] as Timestamp?)?.toDate();
@@ -142,7 +159,7 @@ class _LiveCard extends StatelessWidget {
           height: 250,
           child: Stack(children: [
             if (lat != null && lng != null)
-              Positioned.fill(child: _LiveMap(van: LatLng(lat, lng), heading: (data['heading'] as num?)?.toDouble() ?? -1, destination: destLL))
+              Positioned.fill(child: _LiveMap(van: LatLng(lat, lng), heading: _asDouble(data['heading'], -1), destination: destLL))
             else
               const Positioned.fill(child: ColoredBox(color: Color(0xFFEEF3F8), child: Center(child: CircularProgressIndicator(color: AppColors.primaryBlue)))),
             Positioned(left: 12, top: 12, child: _Chip(live: true, text: 'Live')),
@@ -498,11 +515,10 @@ class _ApprovalCardState extends State<ApprovalCard> {
 
   Widget _card(BuildContext context, Map<String, dynamic> docData) {
     final a = (docData['approval'] as Map?)?.cast<String, dynamic>() ?? const {};
-    final amount = (a['amount'] as num?)?.toDouble() ??
-        (docData['transactionAmount'] as num?)?.toDouble() ??
-        (docData['totalAmount'] as num?)?.toDouble();
-    final prev = (a['previousAmount'] as num?)?.toDouble() ??
-        (docData['pricing']?['estimated'] as num?)?.toDouble();
+    final amountVal = a['amount'] ?? docData['transactionAmount'] ?? docData['totalAmount'] ?? docData['finalAmount'];
+    final prevVal = a['previousAmount'] ?? docData['pricing']?['estimated'] ?? docData['pricing']?['total'];
+    final double? amount = amountVal != null ? _asDouble(amountVal) : null;
+    final double? prev = prevVal != null ? _asDouble(prevVal) : null;
     final note = a['notes']?.toString() ?? a['note']?.toString() ?? '';
 
     // Extract counted items
@@ -520,15 +536,15 @@ class _ApprovalCardState extends State<ApprovalCard> {
     } else if (rawItems is Map) {
       rawItems.forEach((k, v) {
         if (v is Map) {
-          final q = v['quantity'] ?? v['qty'] ?? 1;
-          final p = (v['price'] is num)
-              ? (v['price'] as num).toDouble()
-              : (double.tryParse(v['price']?.toString().replaceAll('£', '') ?? '') ?? 0.0);
+          final q = _asInt(v['quantity'] ?? v['qty'], 1);
+          final p = _asDouble(v['unitPrice'] ?? v['price'], 0.0);
           itemsList.add({
             'name': k.toString(),
             'qty': q,
+            'quantity': q,
             'unitPrice': p,
-            'total': p * (q as num),
+            'price': p,
+            'total': p * q,
           });
         }
       });
@@ -541,7 +557,9 @@ class _ApprovalCardState extends State<ApprovalCard> {
         itemsList.add({
           'name': v.itemType.isNotEmpty ? v.itemType : k,
           'qty': 1,
+          'quantity': 1,
           'unitPrice': p,
+          'price': p,
           'total': p,
         });
       });
@@ -708,13 +726,10 @@ class _ApprovalCardState extends State<ApprovalCard> {
                             if (i > 0) const Divider(height: 1, color: Color(0xFFE2E8F0)),
                             Builder(builder: (context) {
                               final itm = itemsList[i];
-                              final name = itm['itemType'] ?? itm['name'] ?? 'Garment';
-                              final qty = (itm['quantity'] as num?)?.toInt() ??
-                                  (itm['qty'] as num?)?.toInt() ??
-                                  1;
-                              final uPrice = (itm['unitPrice'] as num?)?.toDouble() ??
-                                  (itm['price'] is num ? (itm['price'] as num).toDouble() : 0.0);
-                              final lineTot = (itm['total'] as num?)?.toDouble() ?? (uPrice * qty);
+                              final name = itm['itemType']?.toString() ?? itm['name']?.toString() ?? 'Garment';
+                              final qty = _asInt(itm['quantity'] ?? itm['qty'], 1);
+                              final uPrice = _asDouble(itm['unitPrice'] ?? itm['price'], 0.0);
+                              final lineTot = _asDouble(itm['total'], uPrice * qty);
 
                               return Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

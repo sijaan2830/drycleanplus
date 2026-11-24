@@ -7,6 +7,7 @@ import '../screens/prepaid_packs_screen.dart';
 import '../screens/more_screen.dart';
 import '../screens/service_overview_screen.dart';
 import '../utils/route_helpers.dart';
+export '../utils/route_helpers.dart';
 import '../utils/guest_helper.dart';
 
 /// Global ValueNotifier for instantaneous tab switching (0: Home, 1: Prices, 2: Prepaid, 3: More)
@@ -29,6 +30,7 @@ class PersistentFooterApp extends StatefulWidget {
 
 class PersistentFooterAppState extends State<PersistentFooterApp> {
   int _currentIndex = 0;
+  final List<int> tabHistory = [0];
 
   // ── Responsive measurements ──────────────────────────────────────────────
   /// Standard bar height without safe area inset (from Home.html: 64px)
@@ -53,7 +55,10 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
     super.dispose();
   }
 
-  void setTab(int index) {
+  void setTab(int index, {bool addToHistory = true}) {
+    if (addToHistory && (tabHistory.isEmpty || tabHistory.last != index)) {
+      tabHistory.add(index);
+    }
     if (_currentIndex != index) {
       setState(() => _currentIndex = index);
     }
@@ -65,6 +70,8 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
   /// Reset navigation state to Home tab (index 0).
   /// Call this after logout or account deletion.
   void resetToHomeTab() {
+    tabHistory.clear();
+    tabHistory.add(0);
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
     }
@@ -90,6 +97,9 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
 
     if (nextIndex != null) {
       final int target = nextIndex;
+      if (tabHistory.isEmpty || tabHistory.last != target) {
+        tabHistory.add(target);
+      }
       if (_currentIndex != target) {
         setState(() => _currentIndex = target);
       }
@@ -118,6 +128,9 @@ class PersistentFooterAppState extends State<PersistentFooterApp> {
     }
 
     HapticFeedback.selectionClick();
+    if (tabHistory.isEmpty || tabHistory.last != index) {
+      tabHistory.add(index);
+    }
     setState(() => _currentIndex = index);
     mainTabNotifier.value = index;
 
@@ -536,9 +549,28 @@ class _MainTabScreenState extends State<MainTabScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (mainTabNotifier.value != 0) {
-          persistentFooterKey.currentState?.setTab(0);
-          mainTabNotifier.value = 0;
+        final nav = navigatorKey.currentState;
+        // 1. If any subroute is pushed on top of navigator, pop that subroute!
+        if (nav != null && nav.canPop()) {
+          nav.pop();
+          return;
+        }
+
+        // 2. If tab history has previous tabs, go back to previous tab!
+        final state = persistentFooterAppState ?? persistentFooterKey.currentState;
+        if (state != null && state.tabHistory.length > 1) {
+          state.tabHistory.removeLast(); // remove current
+          final prevIndex = state.tabHistory.last;
+          state.setTab(prevIndex, addToHistory: false);
+          final routes = [
+            '/home',
+            GuestHelper.getPriceRoute(),
+            '/prepaid',
+            '/more',
+          ];
+          RouteNotifier().forceRoute(routes[prevIndex]);
+        } else if (mainTabNotifier.value != 0) {
+          state?.setTab(0, addToHistory: false);
           RouteNotifier().forceRoute('/home');
         } else {
           SystemNavigator.pop();

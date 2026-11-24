@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/app_ui.dart';
+import '../widgets/persistent_footer_app.dart';
 
 /// Premium interactive DrycleanPlus+ VIP Membership Screen
 class MembershipScreen extends StatefulWidget {
@@ -65,7 +66,14 @@ class _MembershipScreenState extends State<MembershipScreen> with SingleTickerPr
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     } else {
-      Navigator.of(context).pushReplacementNamed('/more');
+      final state = persistentFooterAppState ?? persistentFooterKey.currentState;
+      if (state != null && state.tabHistory.length > 1) {
+        state.tabHistory.removeLast();
+        final prevTab = state.tabHistory.last;
+        state.setTab(prevTab, addToHistory: false);
+      } else {
+        Navigator.of(context).pushReplacementNamed('/more');
+      }
     }
   }
 
@@ -80,9 +88,14 @@ class _MembershipScreenState extends State<MembershipScreen> with SingleTickerPr
         ? 'Annual Plan · £2.99/mo (£35.88 billed yearly)'
         : 'Monthly Plan · £3.99/mo (cancel anytime)';
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Scaffold(
         backgroundColor: const Color(0xFF103EB0),
         body: Container(
           width: double.infinity,
@@ -231,6 +244,7 @@ class _MembershipScreenState extends State<MembershipScreen> with SingleTickerPr
           ),
         ),
       ),
+    ),
     );
   }
 

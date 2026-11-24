@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../config/theme.dart';
+import 'persistent_footer_app.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Navigation: smooth fade + slide route
@@ -116,7 +117,14 @@ class AppScaffold extends StatelessWidget {
     if (nav.canPop()) {
       nav.pop();
     } else {
-      nav.pushReplacementNamed('/home');
+      final state = persistentFooterAppState ?? persistentFooterKey.currentState;
+      if (state != null && state.tabHistory.length > 1) {
+        state.tabHistory.removeLast();
+        final prevTab = state.tabHistory.last;
+        state.setTab(prevTab, addToHistory: false);
+      } else {
+        nav.pushReplacementNamed('/home');
+      }
     }
   }
 
@@ -127,9 +135,20 @@ class AppScaffold extends StatelessWidget {
     final keyboardOpen = mq.viewInsets.bottom > 0;
     final bottomPad = keyboardOpen ? 12.0 : (mq.viewPadding.bottom > 12 ? mq.viewPadding.bottom : 12.0);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          if (onBack != null) {
+            onBack!();
+          } else {
+            _defaultBack(context);
+          }
+        }
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Scaffold(
         resizeToAvoidBottomInset: true,
         backgroundColor: AppColors.primaryBlue,
         body: AppBackground(
@@ -189,6 +208,7 @@ class AppScaffold extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

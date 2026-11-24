@@ -77,10 +77,14 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     } else {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainTabScreen(tabIndex: 0)),
-        (_) => false,
-      );
+      final state = persistentFooterAppState ?? persistentFooterKey.currentState;
+      if (state != null && state.tabHistory.length > 1) {
+        state.tabHistory.removeLast();
+        final prevTab = state.tabHistory.last;
+        state.setTab(prevTab, addToHistory: false);
+      } else {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
     }
   }
 

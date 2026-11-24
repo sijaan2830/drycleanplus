@@ -3,12 +3,20 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/persistent_footer_app.dart';
 
 void _faqBack(BuildContext context) {
   if (Navigator.of(context).canPop()) {
     Navigator.of(context).pop();
   } else {
-    Navigator.of(context).pushReplacementNamed('/more');
+    final state = persistentFooterAppState ?? persistentFooterKey.currentState;
+    if (state != null && state.tabHistory.length > 1) {
+      state.tabHistory.removeLast();
+      final prevTab = state.tabHistory.last;
+      state.setTab(prevTab, addToHistory: false);
+    } else {
+      Navigator.of(context).pushReplacementNamed('/more');
+    }
   }
 }
 
@@ -135,9 +143,14 @@ class _FAQScreenState extends State<FAQScreen> {
   Widget build(BuildContext context) {
     final visibleItems = _filteredList;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF1245B5),
-      body: Container(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _faqBack(context);
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF1245B5),
+        body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -431,6 +444,7 @@ class _FAQScreenState extends State<FAQScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

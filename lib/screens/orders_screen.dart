@@ -7,6 +7,7 @@ import '../models/booking_models.dart' as models;
 import '../providers/booking_provider.dart';
 import '../utils/order_status.dart';
 import '../widgets/order_card_widget.dart';
+import '../widgets/persistent_footer_app.dart';
 import 'track_order_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -19,6 +20,21 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   int _selectedTab = 0; // 0 = Active, 1 = Completed (last 24h)
   bool _isLoading = true;
+
+  void _goBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      final state = persistentFooterAppState ?? persistentFooterKey.currentState;
+      if (state != null && state.tabHistory.length > 1) {
+        state.tabHistory.removeLast();
+        final prevTab = state.tabHistory.last;
+        state.setTab(prevTab, addToHistory: false);
+      } else {
+        Navigator.of(context).pushReplacementNamed('/more');
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -43,9 +59,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Scaffold(
         backgroundColor: const Color(0xFF1245B5),
         body: Container(
           decoration: const BoxDecoration(
@@ -171,6 +192,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -185,13 +207,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             shape: const CircleBorder(),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () {
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                } else {
-                  Navigator.of(context).pushReplacementNamed('/more');
-                }
-              },
+              onTap: _goBack,
               child: Container(
                 width: 44,
                 height: 44,
