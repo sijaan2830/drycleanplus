@@ -14,10 +14,6 @@ const REPLY_TO = 'admindryclean@gmail.com';
 const SUPPORT_PHONE = '+44 7424 866802';
 const SITE_URL = 'https://drycleanplus.co.uk';
 
-const COMPANY_NUMBER = process.env.COMPANY_NUMBER || '';
-const REGISTERED_OFFICE = process.env.REGISTERED_OFFICE || 'London, United Kingdom';
-const VAT_NUMBER = process.env.VAT_NUMBER || '';
-
 const money = (n) => `£${Number(n || 0).toFixed(2)}`;
 const first = (name) => String(name || '').trim().split(/\s+/)[0] || 'there';
 
@@ -93,17 +89,37 @@ function buildItemsRowsHtml(items, fallbackTotal) {
                 </tr>`).join('');
 }
 
-function buildLegalFooterHtml() {
+/** Signature logo matching website DrycleanPlusLogo.jsx (email-safe HTML) */
+function buildSignatureLogoHtml() {
   return `
-          <!-- Footer -->
+                    <a href="${SITE_URL}" style="text-decoration: none; display: inline-block;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td valign="middle" style="padding-right: 9px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                              <tr>
+                                <td align="center" valign="middle" width="34" height="34" bgcolor="#064e3b" style="width: 34px; height: 34px; background-color: #064e3b; border-radius: 10px 22px 22px 10px; border: 1.5px solid #4ade80; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; font-weight: 900; color: #FFFFFF; letter-spacing: -0.5px;">
+                                  DC<span style="color: #EF4444;">+</span>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                          <td valign="middle" style="white-space: nowrap;">
+                            <span style="font-family: 'Satisfy', 'Brush Script MT', 'Segoe Script', cursive, Georgia, serif; font-size: 24px; font-weight: bold; font-style: italic; color: #1B5E20; letter-spacing: 0.2px;">Dryclean</span><span style="font-family: 'Satisfy', 'Brush Script MT', 'Segoe Script', cursive, Georgia, serif; font-size: 24px; font-weight: bold; font-style: italic; color: #EF4444; margin-left: 2px;">Plus</span><span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 19px; font-weight: 900; color: #EF4444; margin-left: 2px;">+</span><span style="color: #FACC15; font-size: 14px; margin-left: 4px; vertical-align: middle;">&#10022;</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </a>`;
+}
+
+function buildFooterHtml() {
+  return `
+          <!-- Footer (Pure White) -->
           <tr>
-            <td class="px" bgcolor="#F7F8FA" style="padding: 26px 40px 28px; background-color: #F7F8FA; border-top: 1px solid #E3E6EB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.7; color: #6B7280;">
+            <td class="px" bgcolor="#FFFFFF" style="padding: 26px 40px 28px; background-color: #FFFFFF; border-top: 1px solid #E3E6EB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.7; color: #6B7280;">
               <div style="font-weight: bold; color: #374151;">DryClean Plus Ltd</div>
-              ${COMPANY_NUMBER ? `<div>Registered in England and Wales, company number ${COMPANY_NUMBER}</div>` : '<div>Registered in England and Wales</div>'}
-              <div>Registered office: ${REGISTERED_OFFICE}</div>
-              ${VAT_NUMBER ? `<div>VAT registration number ${VAT_NUMBER}</div>` : ''}
-              <div style="padding-top: 10px;">
-                <a href="${SITE_URL}" style="color: #6B7280; text-decoration: underline;">drycleanplus.co.uk</a>
+              <div style="padding-top: 4px;">
+                <a href="${SITE_URL}" style="color: #0B2A6B; text-decoration: underline;">drycleanplus.co.uk</a>
               </div>
               <div style="padding-top: 10px;">You’re receiving this email because you placed an order with DryClean Plus.</div>
             </td>
@@ -130,6 +146,7 @@ function buildOrderConfirmationEmail(order = {}, orderIdDisplay = '') {
   <meta name="x-apple-disable-message-reformatting">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
+  <link href="https://fonts.googleapis.com/css2?family=Satisfy&display=swap" rel="stylesheet">
   <title>Booking confirmed, order #${id}</title>
   <style>
     @media only screen and (max-width: 480px) {
@@ -139,14 +156,14 @@ function buildOrderConfirmationEmail(order = {}, orderIdDisplay = '') {
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #EEF1F5; -webkit-text-size-adjust: 100%;">
-  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all; font-size: 1px; line-height: 1px; color: #EEF1F5;">
+<body style="margin: 0; padding: 0; background-color: #FFFFFF; -webkit-text-size-adjust: 100%;">
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all; font-size: 1px; line-height: 1px; color: #FFFFFF;">
     Booking confirmed for order #${id}. Collection scheduled for ${collectionSlot}.
   </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EEF1F5" style="background-color: #EEF1F5;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background-color: #FFFFFF;">
     <tr>
       <td align="center" style="padding: 32px 16px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid #DCE0E6;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid #E5E7EB;">
           <tr>
             <td height="4" bgcolor="#0B2A6B" style="height: 4px; font-size: 0; line-height: 0; background-color: #0B2A6B;">&nbsp;</td>
           </tr>
@@ -155,7 +172,7 @@ function buildOrderConfirmationEmail(order = {}, orderIdDisplay = '') {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
-                    <a href="${SITE_URL}" style="font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: bold; color: #0B2A6B; text-decoration: none; letter-spacing: 0.2px;">DryClean Plus</a>
+                    ${buildSignatureLogoHtml()}
                   </td>
                   <td align="right" valign="middle" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #6B7280;">
                     Booking<br>
@@ -217,7 +234,7 @@ function buildOrderConfirmationEmail(order = {}, orderIdDisplay = '') {
               <p style="margin: 0;">Thank you for choosing DryClean Plus.</p>
             </td>
           </tr>
-          ${buildLegalFooterHtml()}
+          ${buildFooterHtml()}
         </table>
       </td>
     </tr>
@@ -256,6 +273,7 @@ function buildBillApprovalEmail(order = {}, orderIdDisplay = '') {
   <meta name="x-apple-disable-message-reformatting">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
+  <link href="https://fonts.googleapis.com/css2?family=Satisfy&display=swap" rel="stylesheet">
   <title>Please approve updated order #${id}</title>
   <style>
     @media only screen and (max-width: 480px) {
@@ -266,14 +284,14 @@ function buildBillApprovalEmail(order = {}, orderIdDisplay = '') {
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #EEF1F5; -webkit-text-size-adjust: 100%;">
-  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all; font-size: 1px; line-height: 1px; color: #EEF1F5;">
+<body style="margin: 0; padding: 0; background-color: #FFFFFF; -webkit-text-size-adjust: 100%;">
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all; font-size: 1px; line-height: 1px; color: #FFFFFF;">
     Inspection complete for order #${id}. Updated total: ${totalAmount}. Please review and approve to begin cleaning.
   </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EEF1F5" style="background-color: #EEF1F5;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background-color: #FFFFFF;">
     <tr>
       <td align="center" style="padding: 32px 16px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid #DCE0E6;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid #E5E7EB;">
           <tr>
             <td height="4" bgcolor="#0B2A6B" style="height: 4px; font-size: 0; line-height: 0; background-color: #0B2A6B;">&nbsp;</td>
           </tr>
@@ -282,7 +300,7 @@ function buildBillApprovalEmail(order = {}, orderIdDisplay = '') {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
-                    <a href="${SITE_URL}" style="font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: bold; color: #0B2A6B; text-decoration: none; letter-spacing: 0.2px;">DryClean Plus</a>
+                    ${buildSignatureLogoHtml()}
                   </td>
                   <td align="right" valign="middle" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #6B7280;">
                     Order Update<br>
@@ -369,7 +387,7 @@ function buildBillApprovalEmail(order = {}, orderIdDisplay = '') {
               <p style="margin: 0;">Thank you for choosing DryClean Plus.</p>
             </td>
           </tr>
-          ${buildLegalFooterHtml()}
+          ${buildFooterHtml()}
         </table>
       </td>
     </tr>
@@ -412,6 +430,7 @@ function buildDeliveredInvoiceEmail(order = {}, orderIdDisplay = '') {
   <meta name="x-apple-disable-message-reformatting">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
+  <link href="https://fonts.googleapis.com/css2?family=Satisfy&display=swap" rel="stylesheet">
   <title>Your DryClean Plus receipt, order #${id}</title>
   <style>
     @media only screen and (max-width: 480px) {
@@ -422,18 +441,18 @@ function buildDeliveredInvoiceEmail(order = {}, orderIdDisplay = '') {
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #EEF1F5; -webkit-text-size-adjust: 100%;">
+<body style="margin: 0; padding: 0; background-color: #FFFFFF; -webkit-text-size-adjust: 100%;">
 
   <!-- Preheader (inbox preview text) -->
-  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all; font-size: 1px; line-height: 1px; color: #EEF1F5;">
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all; font-size: 1px; line-height: 1px; color: #FFFFFF;">
     Order #${id} was delivered on ${deliveryDate}. Your receipt for ${totalAmount} is below.
   </div>
 
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EEF1F5" style="background-color: #EEF1F5;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background-color: #FFFFFF;">
     <tr>
       <td align="center" style="padding: 32px 16px;">
 
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid #DCE0E6;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid #E5E7EB;">
 
           <!-- Brand bar -->
           <tr>
@@ -446,7 +465,7 @@ function buildDeliveredInvoiceEmail(order = {}, orderIdDisplay = '') {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
-                    <a href="${SITE_URL}" style="font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: bold; color: #0B2A6B; text-decoration: none; letter-spacing: 0.2px;">DryClean Plus</a>
+                    ${buildSignatureLogoHtml()}
                   </td>
                   <td align="right" valign="middle" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #6B7280;">
                     Receipt<br>
@@ -560,7 +579,7 @@ function buildDeliveredInvoiceEmail(order = {}, orderIdDisplay = '') {
             </td>
           </tr>
 
-          ${buildLegalFooterHtml()}
+          ${buildFooterHtml()}
 
         </table>
 
