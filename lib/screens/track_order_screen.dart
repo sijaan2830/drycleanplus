@@ -776,13 +776,12 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
                       final isDone = i < step || (delivered && i <= step);
                       final isCurrent = !delivered && i == step;
                       final isLast = i == kOrderSteps.length - 1;
-                      // Only show live tracking button on Step 3 ("On the way") when active
-                      final canTrack = (i == 3) && isCurrent && !delivered;
+                      final canTrack = isCurrent && isLiveOrderStatus(order.status) && !delivered;
 
                       return _JourneyTimelineTile(
-                        title: s.$1,
-                        description: s.$2,
-                        icon: s.$3,
+                        title: isCurrent ? info.label : s.$1,
+                        description: isCurrent && info.description.isNotEmpty ? info.description : s.$2,
+                        icon: isCurrent ? info.icon : s.$3,
                         isDone: isDone,
                         isCurrent: isCurrent,
                         isLast: isLast,
