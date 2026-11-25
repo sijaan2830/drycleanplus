@@ -58,6 +58,7 @@ service-account.json
 /*.patch
 /*.html
 /app_store_screenshots_ipad/
+/app_store_screenshots_iphone/
 /marketing_poster/
 /functions/node_modules/
 /functions/.env

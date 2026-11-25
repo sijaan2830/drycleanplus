@@ -58,8 +58,8 @@ class _PrepaidPackCardState extends State<PrepaidPackCard> {
     final newVal = double.tryParse(newPrice.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
     final savings = (oldVal > newVal) ? (oldVal - newVal) : 0.0;
 
-    // Parse pure numeric count (e.g. "5" from "5" or "5×2-piece")
-    final numericCount = int.tryParse(countStr.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+    // Leading count only (e.g. 5 from "5" or 3 from "3×2-piece" — not 32)
+    final numericCount = int.tryParse(RegExp(r'\d+').firstMatch(countStr)?.group(0) ?? '') ?? 1;
     final pricePerItem = numericCount > 0 ? (newVal / numericCount) : newVal;
 
     final gradientColors = PrepaidPackCard.getGradient(widget.packName);
