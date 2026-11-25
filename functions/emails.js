@@ -11,7 +11,7 @@ const getResendClient = () => {
 };
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'DryClean Plus <orders@drycleanplus.co.uk>';
-const REPLY_TO = 'admindryclean@gmail.com';
+const REPLY_TO = 'orders@drycleanplus.co.uk';
 const SUPPORT_PHONE = '+44 7424 866802';
 const SITE_URL = 'https://drycleanplus.co.uk';
 
