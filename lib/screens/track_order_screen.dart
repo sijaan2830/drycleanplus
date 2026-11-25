@@ -2256,10 +2256,10 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> with SingleTickerPr
             SizedBox(
               height: 50,
               child: FilledButton.icon(
-                onPressed: () => launchUrl(Uri.parse('tel:01636918181')),
+                onPressed: () => launchUrl(Uri.parse('tel:+447424866802'), mode: LaunchMode.externalApplication),
                 icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
                 label: Text(
-                  'Call Support (01636 918181)',
+                  'Call Support (+44 7424 866802)',
                   style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800),
                 ),
                 style: FilledButton.styleFrom(

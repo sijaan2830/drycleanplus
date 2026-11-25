@@ -223,14 +223,14 @@ class _MoreScreenState extends State<MoreScreen> {
                             _buildItemRow(
                               icon: Icons.mail_outline_rounded,
                               title: 'Email Us',
-                              subtitle: 'contact@drycleanplus.co.uk',
+                              subtitle: 'dilee@drycleanplus.co.uk',
                               colorA: const Color(0xFF1553D6),
                               colorB: const Color(0xFF4F95FF),
                               onTap: () async {
-                                final uri = Uri.parse('mailto:contact@drycleanplus.co.uk');
-                                if (await canLaunchUrl(uri)) {
-                                  await launchUrl(uri);
-                                }
+                                final uri = Uri.parse('mailto:dilee@drycleanplus.co.uk');
+                                try {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                } catch (_) {}
                               },
                             ),
                           ]),

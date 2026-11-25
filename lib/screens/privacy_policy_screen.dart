@@ -97,6 +97,25 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
         ),
       ],
     ),
+    _LegalSectionData(
+      title: 'Contact Us & Company Address',
+      colorA: Color(0xFF1553D6),
+      colorB: Color(0xFF4F95FF),
+      tint: Color(0xFFE1ECFF),
+      paragraphs: [
+        'If you have any questions about this Privacy Policy or how we handle your data, please contact us:',
+      ],
+      bulletGroups: [
+        _BulletGroup(
+          label: 'DryClean Plus Ltd',
+          items: [
+            'Address: 2c Bar Gate, Newark NG24 1ES, United Kingdom',
+            'Email: dilee@drycleanplus.co.uk',
+            'Phone: +44 7424 866802',
+          ],
+        ),
+      ],
+    ),
   ];
 
   @override

@@ -35,8 +35,8 @@ function generateInvoicePdfBuffer(order = {}, idDisplay = '') {
       doc.font('Times-BoldItalic').fontSize(26).fillColor('#EF4444').text('Plus+');
       doc.font('Helvetica').fontSize(9.5).fillColor('#6B7280')
         .text('DryClean Plus Ltd', 48, 82)
-        .text('support@drycleanplus.co.uk', 48, 96)
-        .text('www.drycleanplus.co.uk', 48, 110);
+        .text('2c Bar Gate, Newark NG24 1ES, United Kingdom', 48, 95)
+        .text('dilee@drycleanplus.co.uk · www.drycleanplus.co.uk', 48, 108);
 
       // Right Invoice Header
       doc.font('Times-Roman').fontSize(28).fillColor('#111827').text('Invoice', 340, 46, { width: 207, align: 'right' });
@@ -166,8 +166,8 @@ function generateInvoicePdfBuffer(order = {}, idDisplay = '') {
       doc.moveTo(48, fy).lineTo(547, fy).strokeColor('#E3E6EB').lineWidth(1).stroke();
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Thank you for choosing DryClean Plus.', 48, fy + 14);
       doc.font('Helvetica').fontSize(9).fillColor('#6B7280')
-        .text('Questions about this invoice? Email support@drycleanplus.co.uk or call +44 7424 866802.', 48, fy + 30)
-        .text('DryClean Plus Ltd · www.drycleanplus.co.uk', 48, fy + 44);
+        .text('Questions about this invoice? Email dilee@drycleanplus.co.uk or call +44 7424 866802.', 48, fy + 30)
+        .text('DryClean Plus Ltd · 2c Bar Gate, Newark NG24 1ES, United Kingdom', 48, fy + 44);
 
       doc.end();
     } catch (err) {

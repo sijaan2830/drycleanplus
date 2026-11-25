@@ -134,9 +134,9 @@ class _FAQScreenState extends State<FAQScreen> {
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   @override
@@ -582,7 +582,7 @@ class _FAQScreenState extends State<FAQScreen> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => _launchUrl('mailto:contact@drycleanplus.co.uk'),
+              onTap: () => _launchUrl('mailto:dilee@drycleanplus.co.uk'),
               child: Container(
                 height: 42,
                 decoration: BoxDecoration(
@@ -617,7 +617,7 @@ class _FAQScreenState extends State<FAQScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: GestureDetector(
-              onTap: () => _launchUrl('tel:01636918181'),
+              onTap: () => _launchUrl('tel:+447424866802'),
               child: Container(
                 height: 42,
                 decoration: BoxDecoration(
@@ -735,7 +735,7 @@ class _FAQScreenState extends State<FAQScreen> {
               // Email us button
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _launchUrl('mailto:contact@drycleanplus.co.uk'),
+                  onTap: () => _launchUrl('mailto:dilee@drycleanplus.co.uk'),
                   child: Container(
                     height: 46,
                     decoration: BoxDecoration(
@@ -776,7 +776,7 @@ class _FAQScreenState extends State<FAQScreen> {
               // Call us button
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _launchUrl('tel:01636918181'),
+                  onTap: () => _launchUrl('tel:+447424866802'),
                   child: Container(
                     height: 46,
                     decoration: BoxDecoration(

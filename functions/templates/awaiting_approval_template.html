@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Please Approve Order · DryClean Plus</title>
+</head>
+<body style="margin: 0; padding: 24px 0 40px; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1E293B;">
+
+  <div style="max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 20px; overflow: hidden; border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);">
+    
+    <!-- Top Header Banner -->
+    <div style="background: linear-gradient(135deg, #091E5B 0%, #13368E 60%, #1B4ABF 100%); padding: 32px; text-align: left;">
+      <a href="https://drycleanplus.co.uk" style="font-size: 24px; font-weight: 900; color: #FFFFFF; text-decoration: none;">
+        Dryclean<span style="color: #FFD25E;">Plus+</span>
+      </a>
+      <div style="display: inline-block; background: rgba(255, 210, 94, 0.2); border: 1px solid rgba(255, 210, 94, 0.4); color: #FFD25E; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; margin-top: 10px; text-transform: uppercase;">
+        Inspection Complete · Needs Approval
+      </div>
+      <h1 style="font-size: 22px; font-weight: 800; color: #FFFFFF; margin: 12px 0 4px;">
+        Please Approve Order #{{orderId}}
+      </h1>
+      <p style="font-size: 14px; color: #CBD5E1; margin: 0;">
+        New total: {{totalAmount}}. Review counted items to begin cleaning.
+      </p>
+    </div>
+
+    <!-- Body Content -->
+    <div style="padding: 32px;">
+      <p style="font-size: 15px; line-height: 1.5; color: #334155;">Hello <b>{{customerName}}</b>,</p>
+      <p style="font-size: 15px; line-height: 1.5; color: #334155;">
+        Your garments for order <b>#{{orderId}}</b> have arrived at our London facility and been inspected and counted by our master cleaners.
+      </p>
+
+      <!-- Yellow Alert Box -->
+      <div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;">
+        <b style="color: #92400E; font-size: 14px; display: block; margin-bottom: 4px;">⚠️ Action Required:</b>
+        <span style="font-size: 13px; color: #B45309; line-height: 1.4;">
+          Please review and approve the updated garment count and total below so our team can immediately begin the eco-cleaning process.
+        </span>
+      </div>
+
+      <!-- Items Table Box -->
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 14px; padding: 18px 20px; margin-bottom: 24px;">
+        <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #64748B; margin-bottom: 8px;">
+          Inspected Items Breakdown
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748B; padding: 8px 10px; border-bottom: 2px solid #E2E8F0;">Item</th>
+              <th style="text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748B; padding: 8px 10px; border-bottom: 2px solid #E2E8F0;">Qty</th>
+              <th style="text-align: right; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748B; padding: 8px 10px; border-bottom: 2px solid #E2E8F0;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{itemsHtmlRows}}
+          </tbody>
+        </table>
+
+        <!-- Pricing Breakdown -->
+        <div style="margin-top: 16px; border-top: 1px dashed #CBD5E1; padding-top: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
+            <span style="color: #64748B;">Garments Subtotal:</span>
+            <span style="font-weight: 700; color: #0F172A;">{{subtotal}}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">
+            <span style="color: #64748B;">Collection & Delivery Service Fee:</span>
+            <span style="font-weight: 700; color: #0F172A;">{{serviceFee}}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 17px; font-weight: 900; color: #091E5B; padding-top: 14px; margin-top: 14px; border-top: 2px solid #CBD5E1;">
+            <span>New Total Payable:</span>
+            <span>{{totalAmount}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <a href="{{trackUrl}}" style="display: block; background: linear-gradient(135deg, #FFB800 0%, #E69D00 100%); color: #07194A; text-align: center; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 24px; border-radius: 12px; box-shadow: 0 4px 14px rgba(255, 184, 0, 0.35);">
+        Review & Approve Order Now
+      </a>
+      <p style="text-align: center; font-size: 12px; color: #64748B; margin-top: 10px;">
+        One tap to approve in your browser or mobile app.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding: 24px 32px; background: #0F172A; color: #94A3B8; font-size: 12px; text-align: center;">
+      <p style="margin: 0 0 10px;">Questions about your order? Reach our London team at <b>+44 7424 866802</b>.</p>
+      <p style="margin: 0;">DryClean Plus Ltd · 2c Bar Gate, Newark NG24 1ES, United Kingdom</p>
+    </div>
+
+  </div>
+
+</body>
+</html>

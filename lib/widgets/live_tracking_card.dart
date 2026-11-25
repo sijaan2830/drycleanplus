@@ -16,7 +16,7 @@ import '../utils/order_status.dart';
 /// Map tiles. OpenStreetMap is fine for testing; for the store release switch to a
 /// keyed provider (MapTiler, Mapbox, Stadia…) — only this line needs to change.
 const String kMapTilesUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-const String kSupportPhone = '01636918181';
+const String kSupportPhone = '+447424866802';
 
 double _asDouble(dynamic val, [double fallback = 0.0]) {
   if (val == null) return fallback;
