@@ -20,6 +20,7 @@ class PushNotificationService {
   static StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _inboxSub;
   static StreamSubscription<String>? _tokenRefreshSub;
   static final Set<String> _seenDocIds = {};
+  static final Map<String, DateTime> _recentNotifs = {};
   static bool _initialInboxLoaded = false;
 
   static Future<void> initialize() async {
@@ -326,6 +327,14 @@ class PushNotificationService {
     required String body,
     Map<String, dynamic> data = const {},
   }) async {
+    // Deduplicate when both FCM onMessage and Firestore listener fire for the same event
+    final dedupKey = '${data['orderId'] ?? ''}|$title|$body';
+    final now = DateTime.now();
+    final last = _recentNotifs[dedupKey];
+    if (last != null && now.difference(last).inSeconds < 8) return;
+    _recentNotifs[dedupKey] = now;
+    _recentNotifs.removeWhere((_, t) => now.difference(t).inSeconds > 30);
+
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'high_importance_channel', // Must match AndroidManifest.xml
