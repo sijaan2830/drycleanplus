@@ -171,22 +171,29 @@ class _MoreScreenState extends State<MoreScreen> {
                           _buildMembershipBanner(),
                           const SizedBox(height: 18),
 
-                          // Section: Orders
-                          _buildSectionHeader('Orders'),
+                          // Section: Loyalty Rewards
+                          _buildSectionHeader('Rewards'),
                           const SizedBox(height: 8),
                           _buildGroupCard([
                             Consumer<LoyaltyProvider>(
                               builder: (_, lp, __) => _buildItemRow(
                                 icon: Icons.card_giftcard_rounded,
-                                title: 'Loyalty Card & Rewards',
+                                title: 'Loyalty Card',
                                 subtitle: lp.availableCredit > 0
                                     ? '£${lp.availableCredit.toStringAsFixed(2)} free credit ready · ${lp.currentCount}/5 orders'
                                     : '${lp.currentCount} of 5 paid orders · £${lp.nextRewardBuilding.toStringAsFixed(2)} building',
-                                colorA: const Color(0xFF0E3E2C),
-                                colorB: const Color(0xFF177245),
+                                colorA: const Color(0xFF0B1F5B),
+                                colorB: const Color(0xFF0E5A3E),
                                 onTap: () => _push(const LoyaltyScreen(), routeName: '/loyalty'),
                               ),
                             ),
+                          ]),
+                          const SizedBox(height: 18),
+
+                          // Section: Orders
+                          _buildSectionHeader('Orders'),
+                          const SizedBox(height: 8),
+                          _buildGroupCard([
                             _buildItemRow(
                               icon: Icons.receipt_long_rounded,
                               title: 'Orders',

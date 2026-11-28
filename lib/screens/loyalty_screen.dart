@@ -18,13 +18,15 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
   final Set<int> _expandedRounds = {};
   bool _shownAutoPopup = false;
 
-  static const _skyA = Color(0xFF4CC3F4);
-  static const _skyB = Color(0xFF2AA7E1);
-  static const _forestA = Color(0xFF0E3E2C);
-  static const _forestB = Color(0xFF17553E);
-  static const _lime = Color(0xFF7FD13B);
-  static const _ink = Color(0xFF0A2433);
-  static const _navy = Color(0xFF0B2A6B);
+  static const _navyDark = Color(0xFF0A1D4E);
+  static const _navyMid = Color(0xFF143C8C);
+  static const _royalBlue = Color(0xFF1C61E4);
+  static const _emerald = Color(0xFF0E5A3E);
+  static const _mint = Color(0xFF22C55E);
+  static const _gold = Color(0xFFFFC73A);
+  static const _ink = Color(0xFF0F172A);
+  static const _muted = Color(0xFF64748B);
+  static const _canvas = Color(0xFFF4F7FB);
 
   @override
   void initState() {
@@ -55,16 +57,18 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        margin: const EdgeInsets.fromLTRB(12, 36, 12, 16),
-        padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+        margin: const EdgeInsets.fromLTRB(12, 40, 12, 16),
+        padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [_forestA, _forestB],
+            colors: [Color(0xFF0B3224), Color(0xFF13523B)],
           ),
           borderRadius: BorderRadius.circular(28),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 28, offset: const Offset(0, 12))],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 14)),
+          ],
         ),
         child: SafeArea(
           top: false,
@@ -73,28 +77,39 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(color: _lime, shape: BoxShape.circle, boxShadow: [BoxShadow(color: _lime.withValues(alpha: 0.4), blurRadius: 18)]),
-                  child: const Icon(Icons.card_giftcard_rounded, color: _forestA, size: 34),
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: _mint.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _mint.withValues(alpha: 0.6), width: 2),
+                  ),
+                  child: const Icon(Icons.workspace_premium_rounded, color: _gold, size: 32),
                 ),
-                const SizedBox(height: 16),
-                Text('Reward unlocked!', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 14),
+                Text(
+                  'Reward Unlocked!',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 21, fontWeight: FontWeight.w800, color: Colors.white),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   _money(reward.creditEarned),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 44, fontWeight: FontWeight.w900, color: _lime, height: 1.05),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 42, fontWeight: FontWeight.w900, color: _gold, height: 1.05),
                 ),
                 const SizedBox(height: 4),
-                Text('free cleaning credit', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white70)),
+                Text(
+                  'Free Cleaning Credit Added to Your Pass',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.white70),
+                ),
                 const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Your 5 orders', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
+                      Text('ROUND ${reward.round} QUALIFYING ORDERS',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: _muted, letterSpacing: 0.6)),
                       const SizedBox(height: 10),
                       for (final o in reward.orders)
                         Padding(
@@ -104,7 +119,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                               Expanded(
                                 child: Text(
                                   '#${o.orderId} · ${_shortDate(o.date)}',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF475569), fontWeight: FontWeight.w600),
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _ink, fontWeight: FontWeight.w600),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -112,23 +127,23 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                             ],
                           ),
                         ),
-                      const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                      const Divider(height: 18, color: Color(0xFFE2E8F0)),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Total paid', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: _ink)),
-                          Text(_money(reward.totalSpent), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: _ink)),
+                          Text('Total paid across 5 orders', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600, color: _muted)),
+                          Text(_money(reward.totalSpent), style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(10)),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('${_money(reward.totalSpent)} ÷ 5', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: _forestA)),
-                            Text(_money(reward.creditEarned), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: _forestA)),
+                            Text('Average credit (${_money(reward.totalSpent)} ÷ 5)', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: _emerald)),
+                            Text(_money(reward.creditEarned), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: _emerald)),
                           ],
                         ),
                       ),
@@ -138,20 +153,23 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 50,
                   child: FilledButton(
                     onPressed: () {
                       Navigator.pop(ctx);
                       setState(() => _tabIndex = 1);
                     },
-                    style: FilledButton.styleFrom(backgroundColor: _lime, foregroundColor: _forestA, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                    child: Text('See my rewards', style: GoogleFonts.plusJakartaSans(fontSize: 15.5, fontWeight: FontWeight.w800)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _gold,
+                      foregroundColor: _navyDark,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text('View & Redeem Credit', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800)),
                   ),
                 ),
-                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text('Back to my card', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.white70)),
+                  child: Text('Back to Loyalty Pass', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70)),
                 ),
               ],
             ),
@@ -165,7 +183,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
   Widget build(BuildContext context) {
     final lp = context.watch<LoyaltyProvider>();
     final user = context.watch<UserProvider>();
-    final customerName = user.fullName.isNotEmpty
+    final fullName = user.fullName.isNotEmpty
         ? user.fullName
         : (user.firstName.isNotEmpty ? user.firstName : 'Valued Customer');
 
@@ -174,283 +192,435 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: _ink),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Row(
-          children: [
-            _BrandLogoPill(compact: true),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(999)),
-              child: Text('Card ${lp.cardNumber}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: _navy)),
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: _tabIndex == 0
-                      ? _buildMyCardTab(lp, customerName, user.firstName)
-                      : _tabIndex == 1
-                          ? _buildRewardsTab(lp)
-                          : _buildHowItWorksTab(),
+      backgroundColor: _canvas,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
+          // ── Sapphire Header + Digital Wallet Pass ──
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF2874F0), _royalBlue, _navyDark],
+                ),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      child: Column(
+                        children: [
+                          // Top Bar
+                          Row(
+                            children: [
+                              InkWell(
+                                onTap: () => Navigator.of(context).pop(),
+                                borderRadius: BorderRadius.circular(999),
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.16),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.arrow_back_ios_new_rounded, size: 17, color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Loyalty Card',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                                ),
+                                child: Text(
+                                  'PASS #${lp.cardNumber}',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Wallet Pass Card
+                          _buildWalletPassCard(lp, fullName),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-          _buildBottomSwitcher(),
+
+          // ── Segmented Pill Switcher & Active Tab Body ──
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 36),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSegmentedTabs(),
+                      const SizedBox(height: 18),
+                      if (_tabIndex == 0)
+                        _buildOverviewTab(lp)
+                      else if (_tabIndex == 1)
+                        _buildRewardsTab(lp)
+                      else
+                        _buildHowItWorksTab(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMyCardTab(LoyaltyProvider lp, String fullName, String firstName) {
-    final displayFirst = firstName.trim().isNotEmpty ? firstName.trim() : 'there';
-    final left = lp.ordersRemaining;
+  /// Luxury dark-navy / obsidian wallet card — completely overflow-safe at any phone width.
+  Widget _buildWalletPassCard(LoyaltyProvider lp, String fullName) {
+    final bool hasCredit = lp.availableCredit > 0;
+    final int count = lp.currentCount.clamp(0, 5);
 
-    // Combine current round orders + recent orders from completed rounds (newest first)
-    final recentOrders = <LoyaltyOrderEntry>[
-      ...lp.currentRoundOrders.reversed,
-      for (final r in lp.rewardHistory) ...r.orders.reversed,
-    ].take(8).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Text(
-            left == 5 && lp.availableCredit > 0
-                ? 'Hi $displayFirst, your free credit is ready!'
-                : 'Hi $displayFirst, $left order${left == 1 ? '' : 's'} to go',
-            style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: _ink, letterSpacing: -0.4),
-          ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0A1638), Color(0xFF0F2D5E), Color(0xFF0E4335)],
         ),
-
-        // ── Main Digital Loyalty Card ───────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_skyA, _skyB]),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [BoxShadow(color: _skyB.withValues(alpha: 0.28), blurRadius: 20, offset: const Offset(0, 10))],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 24, offset: const Offset(0, 14)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Brand row
+          Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('${lp.currentCount} of 5 orders', style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.78), borderRadius: BorderRadius.circular(999)),
-                    child: Text('Round ${lp.activeRound}', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w800, color: _ink)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Complete 5 orders, get the average FREE!',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(fontSize: 16.5, fontWeight: FontWeight.w900, color: _ink),
-              ),
-              const SizedBox(height: 14),
-
-              // 5 stamp circles + 6th FREE gift circle (responsive grid / wrap)
-              Row(
-                children: [
-                  for (int i = 0; i < 5; i++) ...[
-                    Expanded(
-                      child: _buildStampCircle(
-                        index: i + 1,
-                        entry: i < lp.currentRoundOrders.length ? lp.currentRoundOrders[i] : null,
-                        isNext: i == lp.currentRoundOrders.length,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
+              RichText(
+                text: TextSpan(
+                  style: GoogleFonts.satisfy(fontSize: 21, fontWeight: FontWeight.w700, fontStyle: FontStyle.italic),
+                  children: const [
+                    TextSpan(text: 'Dryclean', style: TextStyle(color: Color(0xFF4ADE80))),
+                    TextSpan(text: 'Plus+', style: TextStyle(color: Color(0xFFF87171))),
                   ],
-                  Expanded(child: _buildFreeGiftCircle()),
-                ],
+                ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                '${lp.currentCount} of 5 orders done. Just $left more to unlock your free credit.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: _ink),
-              ),
-              const SizedBox(height: 14),
-
-              // White Card Summary Strip (matching example)
+              const Spacer(),
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _gold.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _gold.withValues(alpha: 0.45)),
+                ),
+                child: Text(
+                  'ROUND ${lp.activeRound}',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w800, color: _gold, letterSpacing: 0.6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Big Progress Stat Row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Name', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                              Text(fullName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Card No', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                              Text(lp.cardNumber, style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Next reward building', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                              Text(_money(lp.nextRewardBuilding), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: _forestA)),
-                            ],
-                          ),
-                        ),
-                      ],
+                    Text(
+                      '$count of 5 orders',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white, height: 1.1),
                     ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(color: _lime, borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Free credit ready', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: _forestA)),
-                          Text(_money(lp.availableCredit), style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: _forestA)),
-                        ],
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      count == 0
+                          ? 'Complete 5 paid orders for free average credit'
+                          : '${lp.ordersRemaining} more order${lp.ordersRemaining == 1 ? '' : 's'} to unlock reward',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white70),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Completed and paid orders count', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w700, color: _ink.withValues(alpha: 0.78))),
-                  Text('Thank you for your business!', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w700, color: _ink.withValues(alpha: 0.78))),
+                  Text('Free Credit', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w600, color: Colors.white60)),
+                  Text(
+                    _money(lp.availableCredit),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: hasCredit ? const Color(0xFF4ADE80) : Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 14),
+          const SizedBox(height: 18),
 
-        // ── Next reward so far Card ──────────────────────────────────────────────
+          // Clean 5-Node Progress Rail + Bonus Star
+          Row(
+            children: [
+              for (int i = 0; i < 5; i++) ...[
+                Expanded(
+                  child: _PassNode(
+                    step: i + 1,
+                    done: i < count,
+                    active: i == count,
+                  ),
+                ),
+                if (i < 4)
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      height: 2.5,
+                      color: i < count - 1
+                          ? const Color(0xFF4ADE80)
+                          : Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+              ],
+              const SizedBox(width: 8),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _gold,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: _gold.withValues(alpha: 0.35), blurRadius: 10)],
+                ),
+                child: const Icon(Icons.card_giftcard_rounded, size: 17, color: _navyDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Sleek Glass Summary Strip inside Wallet Pass
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('CARDHOLDER', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w700, color: Colors.white60, letterSpacing: 0.6)),
+                      const SizedBox(height: 2),
+                      Text(fullName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 28, color: Colors.white.withValues(alpha: 0.16)),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('NEXT CREDIT BUILDING', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w700, color: Colors.white60, letterSpacing: 0.6)),
+                    const SizedBox(height: 2),
+                    Text(_money(lp.nextRewardBuilding), style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: _gold)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSegmentedTabs() {
+    const labels = ['My Card', 'Rewards', 'How It Works'];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < labels.length; i++)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _tabIndex = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  decoration: BoxDecoration(
+                    color: _tabIndex == i ? _navyDark : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    labels[i],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: _tabIndex == i ? Colors.white : _muted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab 0: Clean 5-Step Stamp Timeline + Live Building Metrics ──────────────
+  Widget _buildOverviewTab(LoyaltyProvider lp) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Metrics Row (Spent & Average)
+        Row(
+          children: [
+            Expanded(
+              child: _MetricTile(
+                label: 'Spent this round',
+                value: _money(lp.currentTotalPaid),
+                sub: 'Adds 20p per £1 spent',
+                icon: Icons.payments_outlined,
+                accent: _royalBlue,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricTile(
+                label: 'Avg. order value',
+                value: _money(lp.averageOrderSoFar),
+                sub: '${lp.currentCount} qualifying order${lp.currentCount == 1 ? '' : 's'}',
+                icon: Icons.trending_up_rounded,
+                accent: _emerald,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // 5-Step Clean Stamp Tracker Card
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.05), blurRadius: 16, offset: const Offset(0, 6))],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Next reward so far', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                  Text(_money(lp.nextRewardBuilding), style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
+                  Text('Round ${lp.activeRound} Stamps', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
+                  Text('${lp.currentCount}/5 Complete', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w800, color: _royalBlue)),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                lp.currentCount == 0
-                    ? 'Complete your next paid order to start building credit. Every £1 you pay adds 20p.'
-                    : '${_money(lp.currentTotalPaid)} spent across ${lp.currentCount} order${lp.currentCount == 1 ? '' : 's'}. Every £1 you pay adds 20p. Your average order is ${_money(lp.averageOrderSoFar)}.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, height: 1.45, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // ── Free credit ready to use Banner ──────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_forestA, _forestB]),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 14),
+              for (int i = 0; i < 5; i++) ...[
+                _StampTimelineRow(
+                  step: i + 1,
+                  entry: i < lp.currentRoundOrders.length ? lp.currentRoundOrders[i] : null,
+                  isNext: i == lp.currentRoundOrders.length,
+                  money: _money,
+                  shortDate: _shortDate,
+                ),
+                if (i < 4) const Divider(height: 18, color: Color(0xFFF1F5F9)),
+              ],
+              const Divider(height: 22, color: Color(0xFFE2E8F0)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
                   children: [
-                    Text('Free credit ready to use', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white70)),
-                    const SizedBox(height: 2),
-                    Text(_money(lp.availableCredit), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
+                    const Icon(Icons.card_giftcard_rounded, color: _emerald, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '5th order reward (${_money(lp.currentTotalPaid)} ÷ 5)',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: _emerald),
+                      ),
+                    ),
+                    Text(
+                      _money(lp.nextRewardBuilding),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 15.5, fontWeight: FontWeight.w900, color: _emerald),
+                    ),
                   ],
                 ),
               ),
-              FilledButton(
-                onPressed: () => setState(() => _tabIndex = 1),
-                style: FilledButton.styleFrom(backgroundColor: _lime, foregroundColor: _forestA, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: Text('View', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800)),
-              ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
 
-        // ── Recent qualifying orders ─────────────────────────────────────────────
-        Text('Recent qualifying orders', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-        const SizedBox(height: 8),
-        if (recentOrders.isEmpty)
+        // Available Credit Callout
+        if (lp.availableCredit > 0)
           Container(
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
-            child: Text(
-              'No completed and paid orders counted yet. Once an order is delivered and marked as paid, your stamp appears here live.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF64748B), height: 1.45),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF0E3E2C), Color(0xFF17664B)]),
+              borderRadius: BorderRadius.circular(20),
             ),
-          )
-        else
-          Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
-            child: Column(
+            child: Row(
               children: [
-                for (int i = 0; i < recentOrders.length; i++) ...[
-                  if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  ListTile(
-                    dense: true,
-                    leading: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: const BoxDecoration(color: Color(0xFFDCFCE7), shape: BoxShape.circle),
-                      child: const Icon(Icons.check_rounded, size: 18, color: _forestA),
-                    ),
-                    title: Text('Order #${recentOrders[i].orderId}', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
-                    subtitle: Text('${_shortDate(recentOrders[i].date)} · Completed, paid', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF64748B))),
-                    trailing: Text(_money(recentOrders[i].paidAmount), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: _forestA)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Free Cleaning Credit Ready', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white70)),
+                      const SizedBox(height: 2),
+                      Text(_money(lp.availableCredit), style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w900, color: _gold)),
+                    ],
                   ),
-                ],
+                ),
+                FilledButton(
+                  onPressed: () => setState(() => _tabIndex = 1),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: _emerald,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('Redeem', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800)),
+                ),
               ],
             ),
           ),
@@ -458,139 +628,36 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
     );
   }
 
-  Widget _buildStampCircle({required int index, LoyaltyOrderEntry? entry, required bool isNext}) {
-    final done = entry != null;
-    return AspectRatio(
-      aspectRatio: 0.78,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _forestA, width: 1.5),
-            ),
-            child: done
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: const BoxDecoration(color: _lime, shape: BoxShape.circle),
-                        child: const Icon(Icons.check_rounded, size: 12, color: _forestA),
-                      ),
-                      const SizedBox(height: 3),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(_money(entry.paidAmount), style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, color: _forestA)),
-                      ),
-                      Text(_shortDate(entry.date), style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.local_laundry_service_outlined, size: 20, color: _skyB),
-                      const SizedBox(height: 3),
-                      Text(
-                        isNext ? 'Next\norder' : 'Order\n$index',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 8.5, height: 1.15, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
-                      ),
-                    ],
-                  ),
-          ),
-          Positioned(
-            top: -5,
-            left: -3,
-            child: Container(
-              width: 17,
-              height: 17,
-              decoration: const BoxDecoration(color: _forestA, shape: BoxShape.circle),
-              alignment: Alignment.center,
-              child: Text('$index', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.white)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFreeGiftCircle() {
-    return AspectRatio(
-      aspectRatio: 0.78,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              color: _lime,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _forestA, width: 1.5),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.card_giftcard_rounded, size: 20, color: _forestA),
-                const SizedBox(height: 3),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
-                  child: Text('FREE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w900, color: _forestA)),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            top: -5,
-            left: -3,
-            child: Container(
-              width: 17,
-              height: 17,
-              decoration: const BoxDecoration(color: _forestA, shape: BoxShape.circle),
-              alignment: Alignment.center,
-              child: const Icon(Icons.star_rounded, size: 11, color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Tab 2: My rewards ──────────────────────────────────────────────────────
+  // ── Tab 1: Rewards & History ───────────────────────────────────────────────
   Widget _buildRewardsTab(LoyaltyProvider lp) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('My rewards', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: _ink)),
-        const SizedBox(height: 12),
-
-        // Available free credit hero
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_forestA, _forestB]),
+            gradient: const LinearGradient(colors: [Color(0xFF0E3E2C), Color(0xFF155E44)]),
             borderRadius: BorderRadius.circular(22),
+            boxShadow: [BoxShadow(color: const Color(0xFF0E3E2C).withValues(alpha: 0.25), blurRadius: 18, offset: const Offset(0, 8))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Available free credit', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.white70)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Available Free Credit', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.white70)),
+                  const Icon(Icons.verified_rounded, color: _gold, size: 20),
+                ],
+              ),
               const SizedBox(height: 4),
-              Text(_money(lp.availableCredit), style: GoogleFonts.plusJakartaSans(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text(_money(lp.availableCredit), style: GoogleFonts.plusJakartaSans(fontSize: 38, fontWeight: FontWeight.w900, color: Colors.white)),
               const SizedBox(height: 4),
               Text(
                 lp.rewardHistory.isNotEmpty
-                    ? 'From Round ${lp.rewardHistory.first.round} · earned ${_fullDate(lp.rewardHistory.first.unlockedAt)}'
-                    : 'Complete 5 orders to unlock your first reward',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w500),
+                    ? 'Latest unlocked: Round ${lp.rewardHistory.first.round} on ${_fullDate(lp.rewardHistory.first.unlockedAt)}'
+                    : 'Reach 5 completed & paid orders to unlock credit automatically',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white70),
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -604,125 +671,90 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                         }
                       : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.white.withValues(alpha: 0.25),
-                    foregroundColor: _forestA,
+                    backgroundColor: _gold,
+                    disabledBackgroundColor: Colors.white.withValues(alpha: 0.16),
+                    foregroundColor: _navyDark,
+                    disabledForegroundColor: Colors.white60,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   child: Text(
-                    lp.availableCredit > 0
-                        ? 'Choose it at checkout on your next order'
-                        : 'Unlock free credit after 5 orders',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800),
+                    lp.availableCredit > 0 ? 'Apply at Checkout on Next Order' : 'No Credit Available Yet',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
-
-        // Active Round Building Card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_skyA, _skyB]),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Round ${lp.activeRound} reward', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-                      Text('${lp.currentCount} of 5 orders · ${lp.ordersRemaining} to go', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: _ink.withValues(alpha: 0.8))),
-                    ],
-                  ),
-                  Text(_money(lp.nextRewardBuilding), style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  for (int i = 0; i < 5; i++) ...[
-                    Expanded(
-                      child: Container(
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: i < lp.currentCount ? _navy : Colors.white.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                      ),
-                    ),
-                    if (i < 4) const SizedBox(width: 6),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Unlocks when order 5 is completed and paid. The amount grows with each order.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: _ink.withValues(alpha: 0.85)),
-              ),
-            ],
-          ),
-        ),
         const SizedBox(height: 20),
 
-        Text('Reward history', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-        const SizedBox(height: 8),
+        Text('Reward History', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
+        const SizedBox(height: 10),
         if (lp.rewardHistory.isEmpty)
           Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
-            child: Text('No unlocked rewards yet. After your 5th qualifying order, your average credit will appear here.', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF64748B))),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(color: Color(0xFFEFF6FF), shape: BoxShape.circle),
+                  child: const Icon(Icons.history_rounded, color: _royalBlue),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Your completed 5-order rounds and earned free credit will appear here automatically.',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _muted, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
           )
         else
-          for (final rec in lp.rewardHistory) _buildRewardHistoryCard(rec),
+          for (final rec in lp.rewardHistory) _buildHistoryTile(rec),
       ],
     );
   }
 
-  Widget _buildRewardHistoryCard(LoyaltyRewardRecord rec) {
+  Widget _buildHistoryTile(LoyaltyRewardRecord rec) {
     final expanded = _expandedRounds.contains(rec.round);
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Round ${rec.round} reward', style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
-                  const SizedBox(height: 2),
-                  Text('${_shortDate(rec.unlockedAt)} · 5 orders · ${_money(rec.totalSpent)} paid', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF64748B))),
-                ],
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(color: Color(0xFFECFDF5), shape: BoxShape.circle),
+                child: const Icon(Icons.card_giftcard_rounded, color: _emerald, size: 20),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('+${_money(rec.creditEarned)}', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: _forestA)),
-                  const SizedBox(height: 3),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(999)),
-                    child: Text('Unlocked', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: _forestA)),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Round ${rec.round} Reward', style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
+                    Text('${_shortDate(rec.unlockedAt)} · 5 orders · ${_money(rec.totalSpent)} paid', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted)),
+                  ],
+                ),
               ),
+              Text('+${_money(rec.creditEarned)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: _emerald)),
             ],
           ),
           const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: () {
+          InkWell(
+            onTap: () {
               setState(() {
                 if (expanded) {
                   _expandedRounds.remove(rec.round);
@@ -731,12 +763,16 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                 }
               });
             },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _ink,
-              side: const BorderSide(color: Color(0xFFCBD5E1)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10)),
+              alignment: Alignment.center,
+              child: Text(
+                expanded ? 'Hide 5 orders' : 'Show the 5 qualifying orders',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: _royalBlue),
+              ),
             ),
-            child: Text(expanded ? 'Hide the 5 orders' : 'Show the 5 orders', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700)),
           ),
           if (expanded) ...[
             const SizedBox(height: 10),
@@ -746,7 +782,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('#${o.orderId} · ${_shortDate(o.date)}', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: const Color(0xFF475569))),
+                    Text('#${o.orderId} · ${_shortDate(o.date)}', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: _muted)),
                     Text(_money(o.paidAmount), style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w800, color: _ink)),
                   ],
                 ),
@@ -755,8 +791,8 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${_money(rec.totalSpent)} ÷ 5 orders', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: _forestA)),
-                Text('${_money(rec.creditEarned)} credit', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: _forestA)),
+                Text('${_money(rec.totalSpent)} ÷ 5', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: _emerald)),
+                Text('${_money(rec.creditEarned)} credit', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: _emerald)),
               ],
             ),
           ],
@@ -765,68 +801,65 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
     );
   }
 
-  // ── Tab 3: How it works ────────────────────────────────────────────────────
+  // ── Tab 2: How It Works ────────────────────────────────────────────────────
   Widget _buildHowItWorksTab() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('How it works', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: _ink)),
-        const SizedBox(height: 12),
-
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 4))],
+          ),
           child: Column(
             children: [
-              _stepRow(1, 'Order as usual', 'Each completed and paid order is added to your card automatically.'),
+              _guideStep(1, 'Order as usual', 'Each completed and paid order counts automatically toward your loyalty card.'),
               const Divider(height: 22, color: Color(0xFFF1F5F9)),
-              _stepRow(2, 'Reach 5 orders', 'Watch your progress and reward grow live in the app.'),
+              _guideStep(2, 'Collect 5 qualifying orders', 'Watch your live card fill up order by order in real time.'),
               const Divider(height: 22, color: Color(0xFFF1F5F9)),
-              _stepRow(3, 'Get free credit', 'You receive the average value of those 5 orders. Then a new round starts.'),
+              _guideStep(3, 'Get the average FREE', 'Receive free cleaning credit equal to the average spend of all 5 orders.'),
             ],
           ),
         ),
         const SizedBox(height: 14),
-
-        // Example card
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_skyA, _skyB]),
-            borderRadius: BorderRadius.circular(18),
+            gradient: const LinearGradient(colors: [_navyDark, _navyMid]),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             children: [
-              Text('Example', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: _ink)),
-              const SizedBox(height: 4),
-              Text('You spend £150 across 5 orders', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: _ink)),
-              const SizedBox(height: 8),
+              Text('EXAMPLE', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w800, color: _gold, letterSpacing: 1)),
+              const SizedBox(height: 6),
+              Text('Spend £150 across 5 paid orders', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+              const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                decoration: BoxDecoration(color: _ink, borderRadius: BorderRadius.circular(999)),
-                child: Text('£150 ÷ 5 = £30', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+                child: Text('£150 ÷ 5 = £30.00 FREE', style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w900, color: _gold)),
               ),
-              const SizedBox(height: 8),
-              Text('£30.00 free cleaning credit', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: _ink)),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-
-        Text('What counts', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ruleRow(true, 'Orders that are both completed and paid'),
+              Text('What Counts', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
+              const SizedBox(height: 12),
+              _ruleRow(true, 'Orders that are both completed (delivered) and paid'),
               const SizedBox(height: 10),
-              _ruleRow(true, 'The amount you pay yourself'),
+              _ruleRow(true, 'Only the amount you pay yourself'),
               const SizedBox(height: 10),
-              _ruleRow(false, 'Cancelled or refunded orders do not count'),
+              _ruleRow(false, 'Cancelled or unpaid orders do not count'),
               const SizedBox(height: 10),
-              _ruleRow(false, 'Any part paid with free credit does not count'),
+              _ruleRow(false, 'Any portion paid using free credit does not count'),
             ],
           ),
         ),
@@ -834,16 +867,16 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
     );
   }
 
-  Widget _stepRow(int num, String title, String subtitle) {
+  Widget _guideStep(int n, String title, String sub) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 28,
-          height: 28,
-          decoration: const BoxDecoration(color: _forestA, shape: BoxShape.circle),
+          width: 30,
+          height: 30,
+          decoration: const BoxDecoration(color: _navyDark, shape: BoxShape.circle),
           alignment: Alignment.center,
-          child: Text('$num', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+          child: Text('$n', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: _gold)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -852,7 +885,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
             children: [
               Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
               const SizedBox(height: 2),
-              Text(subtitle, style: GoogleFonts.plusJakartaSans(fontSize: 12.5, height: 1.4, color: const Color(0xFF64748B))),
+              Text(sub, style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: _muted, height: 1.45)),
             ],
           ),
         ),
@@ -860,103 +893,193 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
     );
   }
 
-  Widget _ruleRow(bool allowed, String text) {
+  Widget _ruleRow(bool ok, String text) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            color: allowed ? _lime : const Color(0xFFE2E8F0),
+            color: ok ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
             shape: BoxShape.circle,
           ),
-          child: Icon(allowed ? Icons.check_rounded : Icons.close_rounded, size: 14, color: allowed ? _forestA : const Color(0xFF64748B)),
+          child: Icon(ok ? Icons.check_rounded : Icons.close_rounded, size: 14, color: ok ? _emerald : _muted),
         ),
         const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: _ink),
-          ),
-        ),
+        Expanded(child: Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: _ink))),
       ],
     );
   }
+}
 
-  Widget _buildBottomSwitcher() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            children: [
-              _tabBtn(0, Icons.credit_card_rounded, 'My card'),
-              _tabBtn(1, Icons.card_giftcard_rounded, 'Rewards'),
-              _tabBtn(2, Icons.help_outline_rounded, 'How it works'),
-            ],
+class _PassNode extends StatelessWidget {
+  final int step;
+  final bool done;
+  final bool active;
+  const _PassNode({required this.step, required this.done, required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: done
+              ? const Color(0xFF22C55E)
+              : active
+                  ? Colors.white.withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.08),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: done
+                ? const Color(0xFF4ADE80)
+                : active
+                    ? const Color(0xFFFFC73A)
+                    : Colors.white.withValues(alpha: 0.25),
+            width: active ? 2 : 1.2,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _tabBtn(int idx, IconData icon, String label) {
-    final active = _tabIndex == idx;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _tabIndex = idx),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: active ? const Color(0xFFDCFCE7) : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: active ? _forestA : const Color(0xFF64748B)),
-              const SizedBox(height: 2),
-              Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _forestA : const Color(0xFF64748B))),
-            ],
-          ),
-        ),
+        alignment: Alignment.center,
+        child: done
+            ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+            : Text(
+                '$step',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: active ? const Color(0xFFFFC73A) : Colors.white70,
+                ),
+              ),
       ),
     );
   }
 }
 
-class _BrandLogoPill extends StatelessWidget {
-  final bool compact;
-  const _BrandLogoPill({this.compact = false});
+class _MetricTile extends StatelessWidget {
+  final String label, value, sub;
+  final IconData icon;
+  final Color accent;
+  const _MetricTile({required this.label, required this.value, required this.sub, required this.icon, required this.accent});
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: accent),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+          const SizedBox(height: 2),
+          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+        ],
+      ),
+    );
+  }
+}
+
+class _StampTimelineRow extends StatelessWidget {
+  final int step;
+  final LoyaltyOrderEntry? entry;
+  final bool isNext;
+  final String Function(double) money;
+  final String Function(DateTime) shortDate;
+
+  const _StampTimelineRow({
+    required this.step,
+    required this.entry,
+    required this.isNext,
+    required this.money,
+    required this.shortDate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final done = entry != null;
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 4 : 5),
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            color: const Color(0xFF0E3E2C),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(text: 'DC', style: GoogleFonts.plusJakartaSans(fontSize: compact ? 13 : 15, fontWeight: FontWeight.w900, color: Colors.white)),
-                TextSpan(text: '+', style: GoogleFonts.plusJakartaSans(fontSize: compact ? 13 : 15, fontWeight: FontWeight.w900, color: const Color(0xFFEF4444))),
-              ],
+            color: done
+                ? const Color(0xFFDCFCE7)
+                : isNext
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFF8FAFC),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: done
+                  ? const Color(0xFF22C55E)
+                  : isNext
+                      ? const Color(0xFF1C61E4)
+                      : const Color(0xFFE2E8F0),
             ),
           ),
+          alignment: Alignment.center,
+          child: done
+              ? const Icon(Icons.check_rounded, size: 18, color: Color(0xFF0E5A3E))
+              : Text(
+                  '$step',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: isNext ? const Color(0xFF1C61E4) : const Color(0xFF94A3B8),
+                  ),
+                ),
         ),
-        const SizedBox(width: 8),
-        Text('DrycleanPlus', style: GoogleFonts.plusJakartaSans(fontSize: compact ? 16 : 18, fontWeight: FontWeight.w800, color: const Color(0xFF0E3E2C))),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                done
+                    ? 'Order #${entry!.orderId}'
+                    : (isNext ? 'Order $step · Up next' : 'Order $step'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: done || isNext ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                ),
+              ),
+              Text(
+                done
+                    ? '${shortDate(entry!.date)} · Completed & paid'
+                    : (isNext ? 'Completed & paid orders count here' : 'Pending future order'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11.5,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (done)
+          Text(
+            money(entry!.paidAmount),
+            style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w900, color: const Color(0xFF0E5A3E)),
+          ),
       ],
     );
   }
