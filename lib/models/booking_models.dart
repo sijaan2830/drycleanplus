@@ -172,6 +172,8 @@ class BookingData {
   Map<String, String> serviceRequests;
   double tipAmount;
   bool repeatOrder;
+  double loyaltyCreditUsed;
+  bool loyaltyCreditRequested;
 
   BookingData({
     this.addresses = const [],
@@ -206,6 +208,8 @@ class BookingData {
     this.serviceRequests = const {},
     this.tipAmount = 0.0,
     this.repeatOrder = false,
+    this.loyaltyCreditUsed = 0.0,
+    this.loyaltyCreditRequested = false,
   });
 
   BookingData copyWith({
@@ -241,6 +245,8 @@ class BookingData {
     Map<String, String>? serviceRequests,
     double? tipAmount,
     bool? repeatOrder,
+    double? loyaltyCreditUsed,
+    bool? loyaltyCreditRequested,
   }) {
     return BookingData(
       addresses: addresses ?? this.addresses,
@@ -275,6 +281,8 @@ class BookingData {
       serviceRequests: serviceRequests ?? this.serviceRequests,
       tipAmount: tipAmount ?? this.tipAmount,
       repeatOrder: repeatOrder ?? this.repeatOrder,
+      loyaltyCreditUsed: loyaltyCreditUsed ?? this.loyaltyCreditUsed,
+      loyaltyCreditRequested: loyaltyCreditRequested ?? this.loyaltyCreditRequested,
     );
   }
 
@@ -314,6 +322,8 @@ class BookingData {
       'totalPrice': basePrice, // Store the actual base price (subtotal)
       'discountAmount': discountAmount,
       'discountedSubtotal': discSubtotal,
+      'loyaltyCreditUsed': loyaltyCreditUsed,
+      'loyaltyCreditRequested': loyaltyCreditRequested,
       'transactionAmount': totalAmount, // total payable (no tax)
       'collectionMethod': collectionMethod,
       'deliveryMethod': deliveryMethod,
@@ -407,6 +417,8 @@ class BookingData {
       serviceRequests: map(json['serviceRequests']).map((k, v) => MapEntry(k, '$v')),
       tipAmount: numv(json['tipAmount']),
       repeatOrder: _isRepeat(json['repeatOrder']),
+      loyaltyCreditUsed: numv(json['loyaltyCreditUsed']),
+      loyaltyCreditRequested: json['loyaltyCreditRequested'] == true,
     );
   }
 
@@ -433,12 +445,14 @@ class BookingData {
   static bool serviceFeeEnabled = true;
   static bool deliveryFeeEnabled = false;
 
-  /// Total payable = items - discount + service fee + delivery fee.
+  /// Total payable = items - discount + service fee + delivery fee - loyalty credit.
   double get totalAmount =>
-      discountedSubtotal +
-      (serviceFeeEnabled ? serviceFee : 0.0) +
-      (deliveryFeeEnabled ? deliveryFee : 0.0) +
-      tipAmount;
+      (discountedSubtotal +
+              (serviceFeeEnabled ? serviceFee : 0.0) +
+              (deliveryFeeEnabled ? deliveryFee : 0.0) +
+              tipAmount -
+              loyaltyCreditUsed)
+          .clamp(0.0, double.infinity);
 
   /// Kept for older call sites.
   double get calculatedTotalPrice => totalAmount;
@@ -517,6 +531,8 @@ class Order {
       'transactionAmount': transactionAmount,
       'transactionId': transactionId,
       'paymentMethod': paymentMethod,
+      'loyaltyCreditUsed': bookingData.loyaltyCreditUsed,
+      'loyaltyCreditRequested': bookingData.loyaltyCreditRequested,
     };
   }
 

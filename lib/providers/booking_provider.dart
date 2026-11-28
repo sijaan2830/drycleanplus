@@ -645,6 +645,8 @@ class BookingProvider extends ChangeNotifier {
   Future<models.Order> createOrder({
     String paymentMethod = 'cod',
     String paymentStatus = 'pay_on_delivery',
+    double loyaltyCreditToUse = 0.0,
+    bool loyaltyCreditRequested = false,
   }) async {
     // Guard against double taps / duplicate success callbacks.
     if (_creatingOrder) {
@@ -664,11 +666,13 @@ class BookingProvider extends ChangeNotifier {
         servicesList.add(_selectedService!);
       }
 
-      // Total = items - discount + service fee + delivery fee (no tax).
+      // Total = items - discount + service fee + delivery fee - loyalty credit (no tax).
       final orderData = _bookingData.copyWith(
         paymentMethod: paymentMethod,
         paymentStatus: paymentStatus,
         selectedServices: servicesList,
+        loyaltyCreditUsed: loyaltyCreditToUse,
+        loyaltyCreditRequested: loyaltyCreditRequested,
       );
       final totalAmount = orderData.totalAmount;
 
@@ -698,6 +702,29 @@ class BookingProvider extends ChangeNotifier {
         // Update time slot booking counts
         await _updateTimeSlotBookings();
         
+        // Atomically deduct loyalty credit used for this order (if any)
+        if (loyaltyCreditToUse > 0) {
+          final userId = _firestoreService.userId;
+          if (userId != null) {
+            final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+            await FirebaseFirestore.instance.runTransaction((tx) async {
+              final snap = await tx.get(userRef);
+              final l = snap.data()?['loyalty'];
+              if (l is Map) {
+                final avail = (l['availableCredit'] as num?)?.toDouble() ?? 0.0;
+                final next = (((avail - loyaltyCreditToUse).clamp(0.0, double.infinity)) * 100).roundToDouble() / 100.0;
+                tx.set(userRef, {
+                  'loyalty': {
+                    ...Map<String, dynamic>.from(l),
+                    'availableCredit': next,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  }
+                }, SetOptions(merge: true));
+              }
+            });
+          }
+        }
+
         // Mark coupon as used if one was applied
         if (usedDiscountCode != null && usedDiscountCode.isNotEmpty) {
           final userId = _firestoreService.userId;

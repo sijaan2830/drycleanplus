@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../providers/loyalty_provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/app_ui.dart';
 import 'account_screen.dart';
 import 'faq_screen.dart';
+import 'loyalty_screen.dart';
 import 'membership_screen.dart';
 import 'offers_screen.dart';
 import 'past_orders_screen.dart';
@@ -173,6 +175,18 @@ class _MoreScreenState extends State<MoreScreen> {
                           _buildSectionHeader('Orders'),
                           const SizedBox(height: 8),
                           _buildGroupCard([
+                            Consumer<LoyaltyProvider>(
+                              builder: (_, lp, __) => _buildItemRow(
+                                icon: Icons.card_giftcard_rounded,
+                                title: 'Loyalty Card & Rewards',
+                                subtitle: lp.availableCredit > 0
+                                    ? '£${lp.availableCredit.toStringAsFixed(2)} free credit ready · ${lp.currentCount}/5 orders'
+                                    : '${lp.currentCount} of 5 paid orders · £${lp.nextRewardBuilding.toStringAsFixed(2)} building',
+                                colorA: const Color(0xFF0E3E2C),
+                                colorB: const Color(0xFF177245),
+                                onTap: () => _push(const LoyaltyScreen(), routeName: '/loyalty'),
+                              ),
+                            ),
                             _buildItemRow(
                               icon: Icons.receipt_long_rounded,
                               title: 'Orders',

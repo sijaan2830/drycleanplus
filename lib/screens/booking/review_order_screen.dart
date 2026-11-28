@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/booking_models.dart';
 import '../../providers/booking_provider.dart';
+import '../../providers/loyalty_provider.dart';
 import '../../widgets/app_ui.dart';
 import '../../widgets/booking_ui.dart';
 import '../../widgets/service_price_card.dart';
@@ -64,13 +66,27 @@ class _ReviewOrderScreenState extends State<ReviewOrderScreen> {
     } else {
       bp.updateBookingData(d.copyWith(acceptedTerms: true));
     }
+    final lp = context.read<LoyaltyProvider>();
+    final bool isEstimate = d.selectedServices.isNotEmpty;
+    final bool creditRequested = lp.useCreditInCheckout && lp.availableCredit > 0;
+    final double creditToUse = (!isEstimate && creditRequested)
+        ? math.min(lp.availableCredit, d.totalAmount)
+        : 0.0;
+    final double payable = math.max(0.0, d.totalAmount - creditToUse);
+
     if (_payNow) {
-      _open(PaymentScreen(amount: bp.bookingData.totalAmount), '/payment');
+      _open(PaymentScreen(amount: payable), '/payment');
       return;
     }
     setState(() => _placing = true);
     try {
-      await bp.createOrder(paymentMethod: 'cod', paymentStatus: 'pay_on_delivery');
+      await bp.createOrder(
+        paymentMethod: 'cod',
+        paymentStatus: 'pay_on_delivery',
+        loyaltyCreditToUse: creditToUse,
+        loyaltyCreditRequested: creditRequested,
+      );
+      lp.setUseCreditInCheckout(false);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(smoothRoute(const BookingConfirmationScreen(), name: '/booking_confirmation'), (_) => false);
     } catch (_) {
@@ -120,8 +136,12 @@ class _ReviewOrderScreenState extends State<ReviewOrderScreen> {
   @override
   Widget build(BuildContext context) {
     final bp = context.watch<BookingProvider>();
+    final lp = context.watch<LoyaltyProvider>();
     final d = bp.bookingData;
     final estimate = d.selectedServices.isNotEmpty;
+    final bool useCredit = lp.useCreditInCheckout && lp.availableCredit > 0;
+    final double creditApplied = (!estimate && useCredit) ? math.min(lp.availableCredit, d.totalAmount) : 0.0;
+    final double finalPayable = math.max(0.0, d.totalAmount - creditApplied);
     final money = (double v) => '£${v.toStringAsFixed(2)}';
     return Scaffold(
       backgroundColor: const Color(0xFF1245B5),
@@ -200,6 +220,9 @@ class _ReviewOrderScreenState extends State<ReviewOrderScreen> {
               if (d.discountAmount > 0)
                 _Row('Discount${d.discountCode == null ? '' : ' (${d.discountCode})'}',
                     value: '−${money(d.discountAmount)}', valueColor: const Color(0xFF16A34A)),
+              if (creditApplied > 0)
+                _Row('Loyalty credit',
+                    value: '−${money(creditApplied)}', valueColor: const Color(0xFF16A34A)),
               if (BookingData.serviceFeeEnabled && BookingData.serviceFee > 0)
                 _Row('Service fee', value: money(BookingData.serviceFee)),
               if (BookingData.deliveryFeeEnabled && BookingData.deliveryFee > 0)
@@ -254,6 +277,45 @@ class _ReviewOrderScreenState extends State<ReviewOrderScreen> {
                   ],
                 ),
               ),
+              if (lp.availableCredit > 0) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: useCredit ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: useCredit ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.card_giftcard_rounded, size: 18, color: Color(0xFF16A34A)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Use free loyalty credit',
+                              style: BK.t(13.5, c: const Color(0xFF0E3E2C), w: FontWeight.w800),
+                            ),
+                            Text(
+                              '${money(lp.availableCredit)} available',
+                              style: BK.t(11.5, c: const Color(0xFF16A34A), w: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: useCredit,
+                        activeColor: const Color(0xFF16A34A),
+                        onChanged: (v) => lp.setUseCreditInCheckout(v),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const Divider(height: 24, color: BK.line),
               // To pay now row
               Row(
@@ -265,13 +327,15 @@ class _ReviewOrderScreenState extends State<ReviewOrderScreen> {
                       Text(estimate ? 'To pay now' : 'Total', style: BK.h(17)),
                       if (estimate)
                         Text(
-                          'No payment required today',
+                          useCredit
+                              ? 'Loyalty credit (${money(lp.availableCredit)}) will be applied at facility billing'
+                              : 'No payment required today',
                           style: BK.t(12, c: const Color(0xFF16A34A), w: FontWeight.w700),
                         ),
                     ],
                   ),
                   Text(
-                    estimate ? money(0) : money(d.totalAmount),
+                    estimate ? money(0) : money(finalPayable),
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,

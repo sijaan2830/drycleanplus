@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/app_ui.dart';
 import '../widgets/live_order_banner.dart';
+import '../widgets/loyalty_mini_card.dart';
 import '../widgets/sparkling_overlay.dart';
 import '../widgets/dryclean_washing_machine.dart';
 import 'service_overview_screen.dart';
@@ -119,6 +120,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             // ── Live order: driver on the way / approval needed ──
                             const LiveOrderBanner(),
+
+                            // ── Live Digital Loyalty Card progress ──
+                            const LoyaltyMiniCard(),
 
                             // ── Doorstep Delivery Hero Banner with Branded Model ──
                             _buildShopBanner(context),

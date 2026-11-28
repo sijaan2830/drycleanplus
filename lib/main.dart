@@ -30,6 +30,8 @@ import 'providers/prepaid_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/time_slot_provider.dart';
 import 'providers/service_provider.dart';
+import 'providers/loyalty_provider.dart';
+import 'screens/loyalty_screen.dart';
 import 'widgets/persistent_footer_app.dart';
 import 'utils/route_helpers.dart';
 import 'utils/guest_helper.dart';
@@ -98,6 +100,8 @@ class DrycleanPlusApp extends StatelessWidget {
         ChangeNotifierProvider(
             create: (_) =>
                 ServiceProvider()..initializeServicesListener()),
+        ChangeNotifierProvider(
+            create: (_) => LoyaltyProvider()..initialize()),
       ],
       child: MaterialApp(
         title: 'DrycleanPlus',
@@ -158,6 +162,7 @@ class DrycleanPlusApp extends StatelessWidget {
           '/service_selection': (_) => const MainTabScreen(tabIndex: 1),
           '/offers': (_) => const OffersScreen(),
           '/notifications': (_) => const NotificationScreen(),
+          '/loyalty': (_) => const LoyaltyScreen(),
         },
       ),
     );
